@@ -1,0 +1,211 @@
+--- RC45/ModuleMain.bas
++++ RC46/ModuleMain.bas
+@@ -3163,14 +3163,11 @@
+ Dim scope As String
+ EDCCandidateAllowed = True
+ If Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2)) <> "4007" Then Exit Function
+-If Not mEDCWaitByMat Is Nothing Then
+- If mEDCWaitByMat.exists(mat) Then EDCCandidateAllowed = False: Exit Function
+-End If
+ scope = EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2))
+ If Not mEDCSTOByMat Is Nothing Then
+  If mEDCSTOByMat.exists(mat) Then scope = CStr(mEDCSTOByMat(mat))
+ End If
+-If scope <> "" Then EDCCandidateAllowed = EDCScopeIncludes(scope, sto)
++If scope <> "" And sto <> "" Then EDCCandidateAllowed = EDCScopeIncludes(scope, sto)
+ End Function
+ 
+ Private Function EDCRequestQty(ByVal mat As String) As Double
+@@ -3850,14 +3847,57 @@
+ stage = "GROUP_VERIFY_OB"
+ Dim deficits As Object
+ Set deficits = CreateObject("Scripting.Dictionary")
++On Error Resume Next
+ EDCVerifyGroup plans, deficits
+-stage = "GROUP_ENSURE_SNAPSHOT"
+-EDCEnsureGroupInSnapshot plans
+-stage = "GROUP_COMMIT"
+-EDCCommitGroup plans
++On Error GoTo Failed
++
+ stage = "RELEASE_3001_DRAFTS"
++Dim releasedDraft As Boolean
+ If deficits.count > 0 And ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
+- EDCReleaseDrafts3001 deficits
++ releasedDraft = EDCReleaseDrafts3001(deficits)
++End If
++
++If releasedDraft Then
++ ' Tu can va tu tao lai: Re-submit VL10D create for deficit materials once 3001 draft is released!
++ stage = "AUTO_RETRY_VL10D"
++ Dim retryPlans As Object, rMat As Variant, rPlanned As Variant
++ Set retryPlans = CreateObject("Scripting.Dictionary")
++ For Each rMat In deficits.keys
++  If Not mEDCCreatePlan Is Nothing Then
++   If mEDCCreatePlan.exists(CStr(rMat)) Then
++    rPlanned = mEDCCreatePlan(CStr(rMat))
++    rPlanned(3) = CDbl(deficits(rMat))
++    retryPlans.Add CStr(rMat), rPlanned
++   End If
++  End If
++ Next rMat
++ 
++ If retryPlans.count > 0 Then
++  ModuleLog.WriteLog "VL10D_AUTO_RETRY", "Retrying VL10D create for " & retryPlans.count & " deficit materials after 3001 draft release..."
++  On Error Resume Next
++  ModuleSAP.EDC4007_PrepareGroup sto, retryPlans
++  detail = ModuleSAP.EDC4007_CreateGroup(sto)
++  ModuleLog.WriteLog "VL10D_AUTO_RETRY_SUBMITTED", "STO=" & sto & "; " & detail
++  EDCRefreshGroupOB InputProducts()
++  Dim retryDeficits As Object: Set retryDeficits = CreateObject("Scripting.Dictionary")
++  EDCVerifyGroup retryPlans, retryDeficits
++  For Each rMat In retryPlans.keys
++   If Not plans.exists(CStr(rMat)) Then plans.Add CStr(rMat), retryPlans(rMat)
++  Next rMat
++  On Error GoTo Failed
++ End If
++End If
++
++If plans.count > 0 Then
++ stage = "GROUP_ENSURE_SNAPSHOT"
++ EDCEnsureGroupInSnapshot plans
++ stage = "GROUP_COMMIT"
++ EDCCommitGroup plans
++Else
++ ModuleLog.WriteLog "VL10D_GROUP_DEFERRED", "STO=" & sto & "; No items created yet; 3001 draft released; pending cleared for next run"
++ PutConfig "VL10D_PENDING_KEY", ""
++ PutConfig "VL10D_GROUP_PENDING", ""
++ ThisWorkbook.Save
+ End If
+ Exit Sub
+ Failed:
+@@ -3881,14 +3921,16 @@
+ oldRows = ws.Range("A6:P" & oldLast).Value2
+ Set savedProducts = mRecoveryProducts: Set mRecoveryProducts = products
+ On Error GoTo Failed
+-ModuleSAP.OB_ReadVL06O products, False
++ModuleSAP.OB_ReadVL06O InputProducts(), False
+ MergeUntouched ws, oldRows, 6, 3, 16
++ModuleSAP.OB_ClassifyCandidates ws
+ Set mRecoveryProducts = savedProducts
+ Exit Sub
+ Failed:
+ eno = Err.Number: detail = Err.Description
+ ws.Range("A6:P" & Application.Max(oldLast, ws.Cells(ws.rows.count, 1).End(xlUp).row)).ClearContents
+ ws.Range("A6:P" & oldLast).Value2 = oldRows
++ModuleSAP.OB_ClassifyCandidates ws
+ Set mRecoveryProducts = savedProducts
+ Err.Raise eno, , "Group VL06O refresh failed; cache restored; " & detail
+ End Sub
+@@ -4269,9 +4311,9 @@
+ 
+ 
+ 
+-Private Sub EDCReleaseDrafts3001(ByVal deficits As Object)
++Private Function EDCReleaseDrafts3001(ByVal deficits As Object) As Boolean
+ Dim mat As Variant, deficitQty As Double, releaseRes As String, parts As Variant
+-Dim delOB As String, delQty As Double
++Dim delOB As String, delQty As Double, countReleased As Long
+ On Error GoTo Failed
+ 
+ For Each mat In deficits.keys
+@@ -4282,6 +4324,7 @@
+   If releaseRes <> "" Then
+    parts = Split(releaseRes, "|")
+    delOB = CStr(parts(0)): delQty = CDbl(parts(1))
++   countReleased = countReleased + 1
+    ModuleLog.WriteLog "RELEASE_3001_SUCCESS", "Material=" & CStr(mat) & "; Deleted OB=" & delOB & " (" & delQty & " pcs); Deficit was=" & deficitQty
+    mEDCWaitByMat(CStr(mat)) = "DA XOA OB 3001: " & delOB & " (" & delQty & " pcs) DE GIAI PHONG TON; NHAN NUT 1 DE TAO LAI VL10D"
+    EDCSetInputNote CStr(mat), CStr(mEDCWaitByMat(mat))
+@@ -4290,8 +4333,11 @@
+   End If
+  End If
+ Next mat
+-Exit Sub
++EDCReleaseDrafts3001 = (countReleased > 0)
++Exit Function
+ Failed:
+  ModuleLog.WriteLog "RELEASE_3001_ERROR", Err.Number & "; " & Err.Description
+-End Sub
+-
++ EDCReleaseDrafts3001 = False
++End Function
++
++
+
+--- RC45/ModuleSAP.bas
++++ RC46/ModuleSAP.bas
+@@ -4369,9 +4369,12 @@
+  If CStr(rows(i, 12)) <> "A" Then reason = reason & "; GM=" & rows(i, 12)
+  If CStr(rows(i, 13)) <> ModuleHelper.ToolConfig("EXPECTED_UOM", "UN") Then reason = reason & "; INVALID UOM"
+  If val(CStr(rows(i, 14))) <> 0 Then reason = reason & "; SPLIT CHILD"
+- If Not ModuleMain.EDCCandidateAllowed(CStr(rows(i, 3)), CStr(rows(i, 8))) Then reason = reason & "; EDC STO/MATERIAL SCOPE BLOCK"
+- If CStr(rows(i, 10)) <> "CANDIDATE" And CStr(rows(i, 10)) <> "CONTEXT" Then reason = reason & "; INELIGIBLE ITEM"
+- If ob <> "" And reason <> "" And Not bad.exists(ob) Then bad(ob) = reason
++ If reason <> "" Then
++  If Not bad.exists(ob) Then bad(ob) = reason
++ ElseIf Not ModuleMain.EDCCandidateAllowed(CStr(rows(i, 3)), CStr(rows(i, 8))) Then
++  ws.Cells(i + 5, 10).Value2 = "BLOCK"
++  ws.Cells(i + 5, 11).Value2 = "BLOCK_ITEM: EDC STO/MATERIAL SCOPE BLOCK"
++ End If
+ Next i
+ For i = 1 To UBound(rows, 1)
+  ob = CStr(rows(i, 1))
+@@ -5279,7 +5282,8 @@
+ 
+ 
+ Public Function SAPX_DeleteDraftOB(ByVal ses As Object, ByVal ob As String) As Boolean
+-Dim fld As Object, overviewTab As Object, btnYes As Object, sText As String, sType As String
++Dim fld As Object, overviewTab As Object, btnYes As Object, okcd As Object, btnDel As Object
++Dim sText As String, sType As String
+ On Error GoTo Failed
+ 
+ SAPX_Navigate ses, "VL02N"
+@@ -5313,8 +5317,22 @@
+  SAPX_WaitIdle ses, 10
+ End If
+ 
+-ModuleLog.WriteLog "DELETE_OB_SUBMIT", "Sending Shift+F12 (VKey 24) for OB=" & ob
+-ses.findById("wnd[0]").sendVKey 24
++ModuleLog.WriteLog "DELETE_OB_SUBMIT", "Triggering Delete command for draft OB=" & ob
++Set okcd = SAPX_FindById(ses, "wnd[0]/tbar[0]/okcd")
++If Not okcd Is Nothing Then
++ okcd.text = "LOES"
++ ses.findById("wnd[0]").sendVKey 0
++Else
++ Set btnDel = SAPX_FindById(ses, "wnd[0]/tbar[0]/btn[14]")
++ If Not btnDel Is Nothing Then
++  btnDel.Press
++ Else
++  On Error Resume Next
++  ses.findById("wnd[0]/mbar/menu[0]/menu[6]").Select
++  If Err.Number <> 0 Then ses.findById("wnd[0]").sendVKey 24
++  On Error GoTo Failed
++ End If
++End If
+ SAPX_WaitIdle ses, 10
+ 
+ If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
+@@ -5342,7 +5360,7 @@
+    sType = "S" Or _
+    Not DeliveryNumberField(ses) Is Nothing Then
+  SAPX_DeleteDraftOB = True
+- ModuleLog.WriteLog "OB_DELETED_3001", "Delivery " & ob & " deleted successfully via Shift+F12"
++ ModuleLog.WriteLog "OB_DELETED_3001", "Delivery " & ob & " deleted successfully via LOES"
+ Else
+  SAPX_DeleteDraftOB = False
+ End If
+@@ -5471,3 +5489,4 @@
+  SAPX_FindAndReleaseDraft3001OB = ""
+ End Function
+ 
++
+
+--- RC45/ModuleHelper.bas
++++ RC46/ModuleHelper.bas
+@@ -515,3 +515,4 @@
+ 
+ 
+ 
++
+
