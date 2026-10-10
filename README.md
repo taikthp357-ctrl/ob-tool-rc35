@@ -1,14 +1,19 @@
-# OB TOOL V1 RC40
+# OB TOOL V1 RC41
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC40.xlsm`  
-Canonical SHA256: `191D37DAD2E884A5B26026B9332F2BF01CB0C64C8427D9985B5F267DEFAAF4C7`  
-Handoff Archive: `RC40_HANDOFF.zip`  
-Archive SHA256: `6E3B0C9B59815808EFEF63B5AFC1843C70708623F8947069C4BE9708A5E56574`
+Canonical XLSM: `261010_OB_TOOL_V1_RC41.xlsm`  
+Canonical SHA256: `6D2B1E08ED2C8CD3C3287420B755FEAF79C1ECBF2C09D281604E7ED178644D3A`  
+Handoff Archive: `RC41_HANDOFF.zip`  
+Archive SHA256: `C058C5604AB6E1EB880717A711C63A2E50A178667A2E2514E1B65B9332ECE552`
 
-## Key Improvements in RC40
-- **Smart Lock Backoff (Nhánh 3001)**: Tự động chờ 6s-5s (2 nhịp retry) khi gặp SAP `DO_AUTO` khóa PO, hiển thị đếm ngược trên Excel Status Bar và ghi log `WAIT_LOCK_BACKOFF`.
-- **Mở khóa VL10D Initial Selection (Nhánh 4007)**: Khôi phục chuẩn RC34, bỏ chặn cứng `ST_RESWK-LOW` để gửi phím F8 (`sendVKey 8`) vào danh sách Due của VL10D.
-- **Tự động dọn dẹp Pending cũ**: Xóa sạch cờ `VL10D_PENDING_KEY` khi bắt đầu `NEW_REQUEST` hoặc khi mã hàng đổi khác INPUT.
+## Key Improvements in RC41
+- **Phân bổ STO Due từng phần (Partial STO Due Allocation & Dynamic Create - Nhánh 4007)**:
+  - Cho phép chọn STO có số lượng Due nhỏ hơn tổng nhu cầu cần bù (`missing`), thay vì đòi hỏi cứng `>= missing`.
+  - Tự động tính số lượng tạo OB: $\text{CreateQty} = \min(\text{missing}, \text{Due})$.
+  - Tạo mới OB ngay qua VL10D trong Nút 1, tự động refresh nạp OB vào VL06O, phân bổ đủ lô cho số lượng khả dụng và báo cáo rõ ràng phần còn thiếu do hạn mức STO.
+- **Bảo toàn thành quả 100% của Nhánh 3001**:
+  - 19/19 OBs thành công tuyệt đối trên dữ liệu thực tế.
+  - Vận hành siêu tốc với Fast Save Mode (lưu không cần qua VL03N) và Direct Item Locate (không cuộn trang xuống đáy, không quét dư thừa).
+  - Tự động giải phóng khóa ngầm SAP `DO_AUTO` với cơ chế Smart Lock Backoff (2 nhịp retry 6s/5s).
 
 ---
 
@@ -18,39 +23,42 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC39 (10/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC41 (10/10/2026)
 
-### 📦 Các tệp đính kèm RC39
+### 📦 Các tệp đính kèm RC41
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC39_HANDOFF.zip`** | 738,913 bytes | `36BAF1F6154731D8B363D2FEB462746042E32175DA6D18C3ED2870B27A9BAF7E` | **Gói bàn giao đầy đủ RC39 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC39.xlsm`** | 786,760 bytes | `1C374619A87D3A888DC8CA82E307FE8784747DE63AED9AE3FB6ABB30E3A27E32` | Tệp Excel Macro phát hành RC39 (Đã dọn dẹp & Compile) |
-| **`VBA_RC38_TO_RC39.diff`** | 9,936 bytes | `911A9A9BA91E2C7A4F594CA547CD3D8E8C1AB526FD95FA0DB73E3D5ECDBBE877` | Chi tiết bản vá mã nguồn VBA từ RC38 lên RC39 |
-| **`CHANGELOG_RC39.md`** | 5,690 bytes | `5823FA66D79BC1F7A5EF02E3D9E1F69131E4416AE8C465131FD8B6A9804D63AD` | Nhật ký thay đổi và giải pháp kỹ thuật RC39 |
+| **`RC41_HANDOFF.zip`** | 738,739 bytes | `C058C5604AB6E1EB880717A711C63A2E50A178667A2E2514E1B65B9332ECE552` | **Gói bàn giao đầy đủ RC41 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC41.xlsm`** | 787,464 bytes | `6D2B1E08ED2C8CD3C3287420B755FEAF79C1ECBF2C09D281604E7ED178644D3A` | Tệp Excel Macro phát hành RC41 (Đã dọn dẹp & Compile) |
+| **`VBA_RC40_TO_RC41.diff`** | 3,933 bytes | `8264CEC4FA8F31FB686439EE69C4C17BF5EC6622D1332672F3B556474A75958A` | Chi tiết bản vá mã nguồn VBA từ RC40 lên RC41 |
+| **`CHANGELOG_RC41.md`** | 4,200 bytes | `70C88BDEDBB5FB676CFC82AEFEC4F3454532EAB323660C803F4CE2DFF284D54F` | Nhật ký thay đổi và giải pháp kỹ thuật RC41 |
 
-### 🚀 Điểm cải tiến cốt lõi trên RC39 (Tối ưu hóa siêu tốc VL02N):
-1. **[Dừng quét ngay khi hết item - Early Stop trong `OverviewSnapshot`]:**  
-   - Bảng Delivery Overview của SAP (`tblSAPMV50ATC_LIPS_OVER`) luôn sắp xếp item liên tục từ dòng 0 xuống dưới.
-   - Khi quét qua các dòng: Nếu gặp dòng trống (`itemNo = "" And material = ""`), tool kích hoạt dừng quét ngay lập tức (`GoTo finished`), triệt tiêu hoàn toàn việc cuộn qua vùng buffer 20-50 dòng trống của SAP.
-   - Với đơn 1-3 item: Dừng ngay tại trang đầu tiên trong 0.05s, xóa bỏ 100% hiện tượng cuộn xuống đáy bảng!
-2. **[Xóa bỏ lệnh gọi kép trùng lặp trong `OB_Apply`]:**  
-   - Thay thế `Set mUnplannedOriginalSnapshot = OverviewSnapshot(ses)` bằng `Set mUnplannedOriginalSnapshot = mOverviewIndex`, loại bỏ hoàn toàn 1 lần quét toàn bảng trùng lặp.
-3. **[Tối ưu hóa sau khi xóa item trong `RemoveUnplannedItems`]:**  
-   - Sau khi bấm nút xóa và confirm: các item còn lại tự dồn lên đầu bảng (từ dòng 0).
-   - Tool chụp nhanh trang hiện tại (dòng 0) để cập nhật `mOverviewIndex` cho các item còn lại chỉ trong ~0.02s mà không cần quét lại toàn bộ bảng.
-4. **[Tối ưu hóa `LocateItem` - Tìm kiếm trực tiếp không hủy cache]:**  
-   - Quét nhanh các dòng nhìn thấy trên trang hiện tại (`0 To VisibleRowCount - 1`) trước khi tính đến chuyện cuộn.
-   - Không tự ý gán `Set mOverviewIndex = Nothing` để tránh kích hoạt `OverviewSnapshot` quét lại toàn bảng ở Pass 2.
-   - Tìm kiếm với cơ chế Early Exit, dừng ngay khi tìm thấy item.
-5. **Nghiệm thu & VBE Debug Compile PASS 100%:**  
+### 🚀 Điểm cải tiến cốt lõi trên RC41:
+1. **[Partial STO Due Allocation & Dynamic Create - Nhánh 4007]:**  
+   - Bỏ điều kiện cứng `candidate(4) >= missing`. Chấp nhận mọi STO còn Due > 0.
+   - Tính toán lượng tạo động: $\text{CreateQty} = \min(\text{missing}, \text{Due})$.
+   - Khi có STO Due 280 pcs mà nhu cầu là 680 pcs $\rightarrow$ Hệ thống vẫn duyệt tạo OB 280 pcs, nạp vào danh sách và phân bổ ngay lập tức cho 7 batch ($7 \times 40 = 280$), đồng thời báo cáo rõ 400 pcs còn lại thiếu STO.
+2. **[Tự động đồng bộ và nạp VL06O sau khi tạo OB]:**  
+   - Ngay sau khi VL10D sinh số OB mới, tự động refresh VL06O và nạp OB vào RAM để sẵn sàng cho Nút 2 xử lý điền SLoc 3093 và Batch.
+3. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
    - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
    - Gắn macro nút bấm chuẩn xác (`OB_Check` và `OB_Execute`).
-   - Bảo toàn trọn vẹn Rule 1, Rule 2, Rule 3, Rule 4, 4 Invariants nhánh 3001 Shop Body, WholeBatchGate và nguyên tắc FIFO.
+   - Bảo toàn trọn vẹn 4 Invariants, WholeBatchGate và nguyên tắc FIFO.
 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC40 (10/10/2026)
+* **`RC40_HANDOFF.zip`**: SHA-256 `6E3B0C9B59815808EFEF63B5AFC1843C70708623F8947069C4BE9708A5E56574`
+* **`261010_OB_TOOL_V1_RC40.xlsm`**: SHA-256 `191D37DAD2E884A5B26026B9332F2BF01CB0C64C8427D9985B5F267DEFAAF4C7`
+* Bổ sung Smart Lock Backoff (2 nhịp retry 6s/5s) cho hàng đợi deferred bị kẹt `DO_AUTO`, mở khóa màn hình chọn ban đầu VL10D cho nhánh 4007, tự động dọn dẹp cờ pending cũ.
+
+### OB Tool V1 RC39 (10/10/2026)
+* **`RC39_HANDOFF.zip`**: SHA-256 `36BAF1F6154731D8B363D2FEB462746042E32175DA6D18C3ED2870B27A9BAF7E`
+* **`261010_OB_TOOL_V1_RC39.xlsm`**: SHA-256 `1C374619A87D3A888DC8CA82E307FE8784747DE63AED9AE3FB6ABB30E3A27E32`
+* Dừng quét ngay khi hết item (Early Stop), tối ưu hóa xóa item và định vị dòng trực tiếp không cuộn trang xuống đáy.
 
 ### OB Tool V1 RC38 (10/10/2026)
 * **`RC38_HANDOFF.zip`**: SHA-256 `0864D60669766357A17001A4C52BEDD8D2F42453E4F11315D58CE1A532D411D6`

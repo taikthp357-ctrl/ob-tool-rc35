@@ -1,0 +1,81 @@
+--- RC40/ModuleHelper.bas
++++ RC41/ModuleHelper.bas
+@@ -510,3 +510,4 @@
+ 
+ 
+ 
++
+
+--- RC40/ModuleSAP.bas
++++ RC41/ModuleSAP.bas
+@@ -5239,3 +5239,4 @@
+ 
+ 
+ 
++
+
+--- RC40/ModuleMain.bas
++++ RC41/ModuleMain.bas
+@@ -3402,7 +3402,7 @@
+ Set due = ModuleSAP.EDC4007_FindDue(mat, EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2)))
+ For Each a In due
+  largest = Application.Max(largest, CDbl(a(4)))
+- If CDbl(a(4)) >= need Then count = count + 1
++ If CDbl(a(4)) > 0 Then count = count + 1
+  detail = detail & " " & a(0) & "/" & a(1) & " due=" & a(4)
+ Next a
+ EDCCheckOne = IIf(count > 0, "VL10D_CAN_CREATE", "WAIT_STO_DUE_4007") & "; INPUT Qty=" & need & "; eligible=" & count & "; max due=" & largest & ";" & detail
+@@ -3459,7 +3459,7 @@
+ EDCRefreshOB mat
+ ModuleSAP.OB_ClassifyCandidates ThisWorkbook.Worksheets("VL06O_DATA")
+ planned(5) = EDCExistingCapacity(mat, scope)
+-need = Application.Max(0, requiredNow - CDbl(planned(5)))
++need = Application.Min(Application.Max(0, requiredNow - CDbl(planned(5))), CDbl(planned(6)))
+ planned(3) = need
+ planned(7) = EDCTotalOBQty(mat, scope, item)
+ planned(8) = EDCExistingOBIds(mat, scope, item)
+@@ -3567,7 +3567,7 @@
+ 
+ Private Sub EDCPlanOne(ByVal mat As String)
+ Dim need As Double, capacity As Double, missing As Double, scope As String
+-Dim due As Collection, eligible As Collection, candidate As Variant, chosen As Variant, idx As Long, answer As Variant, detail As String, requestPrefix As String
++Dim due As Collection, eligible As Collection, candidate As Variant, chosen As Variant, idx As Long, answer As Variant, detail As String, requestPrefix As String, createQty As Double
+ On Error GoTo Failed
+ PrepareStock
+ need = EDCRequestQty(mat)
+@@ -3588,7 +3588,7 @@
+ Set due = EDCCachedDue(mat, scope)
+ Set eligible = New Collection
+ For Each candidate In due
+- If CDbl(candidate(4)) >= missing Then eligible.Add candidate
++ If CDbl(candidate(4)) > 0 Then eligible.Add candidate
+ Next candidate
+ If eligible.count = 0 Then Err.Raise vbObjectError + 4269, , "WAIT_STO_DUE_4007: need=" & need & "; OB capacity=" & capacity & "; missing=" & missing
+ idx = 1
+@@ -3605,9 +3605,10 @@
+ End If
+ chosen = eligible(idx)
+ mEDCSTOByMat(mat) = CStr(chosen(0))
++createQty = Application.Min(missing, CDbl(chosen(4)))
+ ' mat/STO/Item/CreateQty/remaining need/existing capacity/due/baseline OB Qty/baseline IDs/state
+-mEDCCreatePlan.Add mat, Array(mat, CStr(chosen(0)), CStr(chosen(1)), missing, need, capacity, CDbl(chosen(4)), EDCTotalOBQty(mat, CStr(chosen(0)), CStr(chosen(1))), EDCExistingOBIds(mat, CStr(chosen(0)), CStr(chosen(1))), "READY_CREATE_OB")
+-ModuleLog.WriteLog "VL10D_PLAN_READY", mat & "; STO=" & chosen(0) & "/" & chosen(1) & "; CREATE=" & missing & "; need=" & need & "; OB capacity=" & capacity & "; due=" & chosen(4)
++mEDCCreatePlan.Add mat, Array(mat, CStr(chosen(0)), CStr(chosen(1)), createQty, need, capacity, CDbl(chosen(4)), EDCTotalOBQty(mat, CStr(chosen(0)), CStr(chosen(1))), EDCExistingOBIds(mat, CStr(chosen(0)), CStr(chosen(1))), "READY_CREATE_OB")
++ModuleLog.WriteLog "VL10D_PLAN_READY", mat & "; STO=" & chosen(0) & "/" & chosen(1) & "; CREATE=" & createQty & "; need=" & need & "; OB capacity=" & capacity & "; due=" & chosen(4)
+ Exit Sub
+ Failed:
+ detail = Err.Number & "; " & Err.Description
+@@ -3697,7 +3698,7 @@
+  need = EDCRequestQty(CStr(mat))
+  If need <> CDbl(planned(4)) Then Err.Raise vbObjectError + 4269, , "Remaining request changed; check again."
+  planned(5) = EDCExistingCapacity(CStr(mat), scope)
+- planned(3) = Application.Max(0, need - CDbl(planned(5)))
++ planned(3) = Application.Min(Application.Max(0, need - CDbl(planned(5))), CDbl(planned(6)))
+  planned(7) = EDCTotalOBQty(CStr(mat), scope, CStr(planned(2)))
+  planned(8) = EDCExistingOBIds(CStr(mat), scope, CStr(planned(2)))
+  mEDCCreatePlan(mat) = planned
+@@ -4112,3 +4113,4 @@
+ 
+ 
+ 
++
