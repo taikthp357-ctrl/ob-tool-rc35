@@ -1,0 +1,224 @@
+--- ModuleSAP_RC38.bas
++++ ModuleSAP_RC39.bas
+@@ -2880,61 +2880,101 @@
+ 
+ Private Function LocateItem(ByVal ses As Object, ByVal item As String, ByRef tbl As Object) As Long
+ 
+-Dim row As Long, absoluteRow As Long, actual As Long, key As String, data As Variant, pass As Long, fld As Object
++Dim r As Long, page As Long, cnt As Long, pos As Long, actual As Long, v As String, fld As Object
++Dim key As String, data As Variant, expectedAbsRow As Long, row As Long, fldMat As Object
+ 
+ key = CStr(CLng(val(item)))
+ 
+-For pass = 1 To 2
+-
++Set tbl = DeliveryOverview(ses)
++If tbl Is Nothing Then Err.Raise vbObjectError + 4205, , "Khong co VL02N overview table."
++page = CLng(tbl.VisibleRowCount)
++If page < 1 Then Err.Raise vbObjectError + 4205, , "VL02N table khong co dong nhin thay."
++cnt = CLng(tbl.rowCount)
++
++' Step 1: Check expected row from mOverviewIndex if available
++If Not mOverviewIndex Is Nothing Then
++ If mOverviewIndex.exists(key) Then
++  data = mOverviewIndex(key)
++  expectedAbsRow = CLng(data(3))
++  actual = CLng(tbl.VerticalScrollbar.Position)
++  row = expectedAbsRow - actual
++  If row >= 0 And row < page Then
++   Set fld = TableField(tbl, "LIPS-POSNR", row)
++   v = Trim$(CStr(fld.text))
++   If val(v) = val(item) And v <> "" Then
++    LocateItem = row
++    Exit Function
++   End If
++  End If
++ End If
++End If
++
++' Step 2: Fast scan visible rows on CURRENT page (0 To page - 1) before scrolling
++actual = CLng(tbl.VerticalScrollbar.Position)
++For r = 0 To page - 1
++ If actual + r >= cnt Then Exit For
++ Set fld = TableField(tbl, "LIPS-POSNR", r)
++ v = Trim$(CStr(fld.text))
++ If val(v) = val(item) And v <> "" Then
++  If Not mOverviewIndex Is Nothing Then
++   If mOverviewIndex.exists(key) Then
++    data = mOverviewIndex(key): data(3) = actual + r: mOverviewIndex(key) = data
++   End If
++  End If
++  LocateItem = r
++  Exit Function
++ End If
++Next r
++
++' Step 3: If expected row is on another page, jump directly to that position
++If Not mOverviewIndex Is Nothing Then
++ If mOverviewIndex.exists(key) Then
++  data = mOverviewIndex(key)
++  expectedAbsRow = CLng(data(3))
++  If expectedAbsRow <> actual Then
++   tbl.VerticalScrollbar.Position = expectedAbsRow
++   Set tbl = DeliveryOverview(ses)
++   actual = CLng(tbl.VerticalScrollbar.Position)
++   For r = 0 To page - 1
++    If actual + r >= cnt Then Exit For
++    Set fld = TableField(tbl, "LIPS-POSNR", r)
++    v = Trim$(CStr(fld.text))
++    If val(v) = val(item) And v <> "" Then
++     data(3) = actual + r: mOverviewIndex(key) = data
++     LocateItem = r
++     Exit Function
++    End If
++   Next r
++  End If
++ End If
++End If
++
++' Step 4: Fallback page-by-page scroll with Early Exit (never set mOverviewIndex = Nothing)
++For pos = 0 To cnt - 1 Step page
++ If CLng(tbl.VerticalScrollbar.Position) <> pos Then tbl.VerticalScrollbar.Position = pos
+  Set tbl = DeliveryOverview(ses)
+-
+- If tbl Is Nothing Then Err.Raise vbObjectError + 4205, , "Khong co VL02N overview table."
+-
+- If CLng(tbl.VisibleRowCount) < 1 Then Err.Raise vbObjectError + 4205, , "VL02N table khong co dong nhin thay."
+-
+- If mOverviewIndex Is Nothing Then Set mOverviewIndex = OverviewSnapshot(ses, True)
+-
+- Set tbl = DeliveryOverview(ses)
+-
+- If mOverviewIndex.exists(key) Then
+-
+-  data = mOverviewIndex(key): absoluteRow = CLng(data(3))
+-
+-  actual = CLng(tbl.VerticalScrollbar.Position)
+-
+-  If absoluteRow < actual Or absoluteRow >= actual + CLng(tbl.VisibleRowCount) Then
+-
+-   tbl.VerticalScrollbar.Position = absoluteRow
+-
+-   Set tbl = DeliveryOverview(ses)
+-
+-   actual = CLng(tbl.VerticalScrollbar.Position)
+-
++ actual = CLng(tbl.VerticalScrollbar.Position)
++ For r = 0 To page - 1
++  If actual + r >= cnt Then Exit For
++  Set fld = TableField(tbl, "LIPS-POSNR", r)
++  v = Trim$(CStr(fld.text))
++  Set fldMat = TableField(tbl, "LIPS-MATNR", r)
++  ' Early stop if row is empty (no more items)
++  If v = "" And Trim$(CStr(fldMat.text)) = "" Then Exit For
++  If val(v) = val(item) And v <> "" Then
++   If Not mOverviewIndex Is Nothing Then
++    If mOverviewIndex.exists(key) Then
++     data = mOverviewIndex(key): data(3) = actual + r: mOverviewIndex(key) = data
++    End If
++   End If
++   LocateItem = r
++   Exit Function
+   End If
+-
+-  row = absoluteRow - actual
+-
+-  If row >= 0 And row < CLng(tbl.VisibleRowCount) Then
+-
+-   Set fld = TableField(tbl, "LIPS-POSNR", row)
+-
+-   If val(Trim$(CStr(fld.text))) = val(item) Then
+-
+-    Set fld = TableField(tbl, "LIPS-MATNR", row)
+-
+-    If Trim$(CStr(fld.text)) = CStr(data(0)) Then LocateItem = row: Exit Function
+-
+-   End If
+-
+-  End If
+-
+- End If
+-
+- Set mOverviewIndex = Nothing
+-
+-Next pass
+-
+-Err.Raise vbObjectError + 4206, , "Khong tim thay delivery item " & item & "; da cap nhat vi tri."
++ Next r
++ If v = "" And Trim$(CStr(fldMat.text)) = "" Then Exit For
++Next pos
++
++Err.Raise vbObjectError + 4206, , "Khong tim thay delivery item " & item
+ 
+ End Function
+ 
+@@ -3370,7 +3410,7 @@
+ 
+   Set fld = TableField(tbl, "LIPS-MATNR", rr): material = Trim$(CStr(fld.text))
+ 
+-If itemNo = "" And material = "" Then GoTo NextOverviewRow
++  If itemNo = "" And material = "" Then GoTo finished
+ 
+   If itemNo = "" Or val(itemNo) <= 0 Or material = "" Then Err.Raise vbObjectError + 4217, , "Dong item/material khong day du tai " & CStr(actual + rr)
+ 
+@@ -3406,6 +3446,8 @@
+ finished:
+ 
+ Set tbl = DeliveryOverview(ses)
++
++If savedPosition >= LiveOverviewRowCount(rows) Then savedPosition = 0
+ 
+ If CLng(tbl.VerticalScrollbar.Position) <> savedPosition Then tbl.VerticalScrollbar.Position = savedPosition
+ 
+@@ -3488,7 +3530,7 @@
+ Dim before As Object, live As Object, keep As Object, dropItems As Object, item As Variant, rowData As Variant, originalData As Variant
+ Dim tbl As Object, fld As Object, btn As Object, popup As Object, pos As Long, cnt As Long, page As Long, rr As Long, actual As Long
+ Dim itemNo As String, selected As Object, dropPositions As Object, selectedRow As Object, wantSelected As Boolean, started As Double, stage As String, failure As String, errorNumber As Long
+-Dim dropKeysStr As String, keepKeysStr As String, itm As Variant
++Dim dropKeysStr As String, keepKeysStr As String, itm As Variant, material As String, batch As String, qty As Double, sloc As String
+ 
+ On Error GoTo Fail
+ 
+@@ -3611,7 +3653,32 @@
+ AssertNoPopup ses
+ 
+ stage = "VERIFY_DELETE"
+-Set live = OverviewSnapshot(ses)
++
++Set tbl = DeliveryOverview(ses)
++If Not tbl Is Nothing Then
++ If CLng(tbl.VerticalScrollbar.Position) <> 0 Then tbl.VerticalScrollbar.Position = 0
++ Set tbl = DeliveryOverview(ses)
++End If
++
++Set live = CreateObject("Scripting.Dictionary")
++If Not tbl Is Nothing And CLng(tbl.VisibleRowCount) > 0 Then
++ For rr = 0 To CLng(tbl.VisibleRowCount) - 1
++  Set fld = TableField(tbl, "LIPS-POSNR", rr): itemNo = Trim$(CStr(fld.text))
++  Set fld = TableField(tbl, "LIPS-MATNR", rr): material = Trim$(CStr(fld.text))
++  If itemNo = "" And material = "" Then Exit For
++  If itemNo <> "" And val(itemNo) > 0 And material <> "" Then
++   itemNo = CStr(CLng(val(itemNo)))
++   Set fld = TableField(tbl, "LIPS-CHARG", rr): batch = Trim$(CStr(fld.text))
++   Set fld = TableField(tbl, "LIPSD-G_LFIMG", rr): qty = ModuleHelper.CleanDouble(fld.text)
++   Set fld = TableField(tbl, "LIPS-LGORT", rr): sloc = Trim$(CStr(fld.text))
++   live(itemNo) = Array(material, batch, qty, rr, sloc)
++  End If
++ Next rr
++End If
++
++If live.count < keep.count Then
++ Set live = OverviewSnapshot(ses)
++End If
+ 
+ If live.count <> keep.count Then
+  ModuleLog.WriteLog "STOP_UNPLANNED_ITEM_DELETE_FAILED", "So item sau xoa (" & live.count & ") khong khop ke hoach (" & keep.count & ")", ob
+@@ -3827,7 +3894,7 @@
+ ' Rule 1: Initial Snapshot & Open SLoc Check Gate
+ phase = "OPEN_SLOC_CHECK"
+ Set mOverviewIndex = OverviewSnapshot(ses)
+-Set mUnplannedOriginalSnapshot = OverviewSnapshot(ses)
++Set mUnplannedOriginalSnapshot = mOverviewIndex
+ 
+ initialItemCount = mOverviewIndex.count
+ initialSlocCount = 0
