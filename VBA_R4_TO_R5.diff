@@ -1,0 +1,74 @@
+--- R4/vba/ModuleMain.bas
++++ R5/vba/ModuleMain.bas
+@@ -3674,6 +3674,7 @@
+ ModuleLog.WriteLog "VL10D_GROUP_CREATE_SUBMITTED", "STO=" & sto & "; " & detail
+ stage = "GROUP_VERIFY_OB"
+ EDCVerifyGroup plans
++ EDCEnsureGroupInSnapshot plans
+ EDCCommitGroup plans
+ Exit Sub
+ Failed:
+@@ -3746,7 +3747,9 @@
+   detail = Err.Description
+   ModuleLog.WriteLog "VL10D_TARGET_READ_WAIT", "OB=" & ob & "; attempt=" & attempt & "/2; VL03N; " & detail
+   If InStr(1, detail, "OB_REFERENCE_NOT_VISIBLE_YET:", vbTextCompare) = 0 Or attempt = 2 Then Err.Raise vbObjectError + 4269, , "GROUP_OB_READBACK_WAIT: " & ob & "; " & detail & "; no Create retry."
+-  On Error GoTo 0
++  Resume RetryWait
++RetryWait:
++   On Error GoTo 0
+   Application.Wait Now + TimeSerial(0, 0, 2)
+  Next attempt
+  If CStr(ref(0)) <> CStr(planned(1)) Or val(CStr(ref(1))) <> val(CStr(planned(2))) Then Err.Raise vbObjectError + 4269, , "OB_REFERENCE_MISMATCH: " & ob & "; actual STO/Item=" & ref(0) & "/" & ref(1)
+@@ -3765,6 +3768,44 @@
+ ' Legacy list scan is not an identity source. Never prefilter by a stale STO,
+ ' nor accept an unrelated OB merely because Material matches.
+ Err.Raise vbObjectError + 4269, , "OB_EXACT_RECEIPT_REQUIRED: reconcile the creation log ID before VL03N; no Create retry."
++End Sub
++
++Private Sub EDCEnsureGroupInSnapshot(ByVal plans As Object)
++' VL03N verifies identity, but FIFO consumes the earlier VL06O_DATA snapshot.
++' A stale/missing list cannot be stamped DONE or described as a ready plan.
++' Never infer an OB from Material alone or retry Create to refresh this list.
++Dim ws As Worksheet, rows As Variant, fields As Variant, row As Variant
++Dim expected As Object, seen As Object, totals As Object, mat As Variant, planned As Variant
++Dim key As String, ob As String, item As String, r As Long, qty As Double
++Set ws = ThisWorkbook.Worksheets("VL06O_DATA")
++Set expected = CreateObject("Scripting.Dictionary")
++Set seen = CreateObject("Scripting.Dictionary")
++Set totals = CreateObject("Scripting.Dictionary")
++For Each mat In plans.keys: totals(CStr(mat)) = 0#: Next mat
++For Each row In Split(Replace(Trim$(ModuleHelper.ToolConfig("VL10D_GROUP_OB_RECEIPTS", "")), vbCr, ""), vbLf)
++ fields = Split(CStr(row), "|")
++ key = CStr(fields(3)) & "|" & CStr(fields(4))
++ expected.Add key, CStr(fields(2))
++Next row
++For r = 6 To ws.Cells(ws.rows.count, 1).End(xlUp).row
++ ob = CStr(ws.Cells(r, 1).Value2): item = CStr(ws.Cells(r, 2).Value2)
++ ' VL06O delivery-item lives in B; source STO/item in H/I.
++ key = ob & "|" & item
++ If expected.exists(key) Then
++  mat = CStr(expected(key)): planned = plans(mat)
++  If seen.exists(key) Then Err.Raise vbObjectError + 4269, , "GROUP_OB_LIST_WAIT: duplicate exact OB/item " & key & "; pending kept; no Create retry."
++  If CStr(ws.Cells(r, 3).Value2) <> CStr(mat) Or CStr(ws.Cells(r, 8).Value2) <> CStr(planned(1)) Or val(CStr(ws.Cells(r, 9).Value2)) <> val(CStr(planned(2))) Or CStr(ws.Cells(r, 10).Value2) <> "CANDIDATE" Or val(CStr(ws.Cells(r, 14).Value2)) <> 0 Then Err.Raise vbObjectError + 4269, , "GROUP_OB_LIST_WAIT: exact OB/item not allocatable in VL06O " & key & "; pending kept; no Create retry."
++  qty = ModuleHelper.CleanDouble(ws.Cells(r, 4).Value2)
++  If qty <= 0 Then Err.Raise vbObjectError + 4269, , "GROUP_OB_LIST_WAIT: invalid list Qty for " & key & "; pending kept; no Create retry."
++  seen.Add key, True: totals(CStr(mat)) = CDbl(totals(CStr(mat))) + qty
++ End If
++Next r
++If seen.count <> expected.count Then Err.Raise vbObjectError + 4269, , "GROUP_OB_LIST_WAIT: verified VL03N OB absent from initial VL06O snapshot; pending kept; run read-only check again; no Create retry."
++For Each mat In plans.keys
++ planned = plans(CStr(mat))
++ If CDbl(totals(CStr(mat))) <> CDbl(planned(3)) Then Err.Raise vbObjectError + 4269, , "GROUP_OB_LIST_WAIT: list Qty differs from verified deficit for " & mat & "; pending kept; no Create retry."
++Next mat
++ModuleLog.WriteLog "VL10D_GROUP_LIST_READY", "Exact receipt OB/items present and allocatable in current VL06O snapshot; pending may commit"
+ End Sub
+ 
+ Private Sub EDCCommitGroup(ByVal plans As Object)
+@@ -3881,6 +3922,7 @@
+  plans.Add CStr(parts(1)), planned
+ Next record
+ EDCVerifyGroup plans, True
++EDCEnsureGroupInSnapshot plans
+ EDCCommitGroup plans
+ ModuleLog.WriteLog "VL10D_PENDING_GROUP_RESOLVED", "Verified actual OB; no repeated Create"
+ Exit Sub
