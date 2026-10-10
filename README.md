@@ -1,26 +1,19 @@
-# OB TOOL V1 RC42
+# OB TOOL V1 RC43
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC42.xlsm`  
-Canonical SHA256: `03F4B9AD3120901197B49D8A3DE6EE1A9D6C517E9659A3FB4D88A2E82A9432ED`  
-Handoff Archive: `RC42_HANDOFF.zip`  
-Archive SHA256: `957A35CDA3BE65AE8F2A5C889F54D42F99110C2B6FCFFE828ACB46234BA70155`
+Canonical XLSM: `261010_OB_TOOL_V1_RC43.xlsm`  
+Canonical SHA256: `A406F9265328781F6BBDB2F63F7158666257976D9333ECFBD6CC4445F2FA4F6F`  
+Handoff Archive: `RC43_HANDOFF.zip`  
+Archive SHA256: `FDCF2FFE3354D6F3037D8415C83D5FB294BC0743928F2C417B11DEFBC6A595CC`
 
-## Key Improvements in RC42
-- **Mở khóa tạo Delivery VL10D ở chế độ APPLY (Nhánh 4007)**:
-  - Khắc phục lỗi dừng trước khi bấm nút tạo Delivery: `VL10D_GROUP_WAIT: GROUP_PREPARE; -2147217243; Group due missing Material/STO/Item; no Create`.
-  - Nguyên nhân do cột Supplying Plant (`RESWK`) không hiển thị trên danh sách Classic View của VL10D khiến `a(10)` rỗng và trượt điều kiện lọc nguồn 3093.
-  - RC42 gán trực tiếp nguồn 3093 và nới lỏng điều kiện kiểm tra cột nguồn thành `(CStr(a(10)) = "" Or CStr(a(10)) = "3093")`, cho phép tiến thẳng tới bước gửi lệnh tạo Delivery sang SAP.
-  - Bổ sung kiểm tra tooltip hỗ trợ cả nhãn `"background"` và `"hintergrund"` cho nút lệnh tạo Delivery nền.
-- **Chuẩn hóa giao diện và định dạng ngày tháng sheet LOG (UI & Formatting)**:
-  - Khắc phục lỗi cột `TIMESTAMP` hiển thị số thực thô `46305,95369`: Đặt chuẩn `NumberFormat = "m/d/yy h:mm AM/PM"` và `.Value = Now`, đảm bảo mọi dòng ghi log luôn hiển thị đúng ngày giờ (ví dụ: `10/10/26 10:54 PM`).
-  - Mở rộng độ rộng các cột sheet LOG để triệt tiêu hoàn toàn hiện tượng tràn chữ, đè cột:
-    - Cột B (`RUN ID`): Mở rộng từ 14 lên **20**, căn giữa.
-    - Cột C (`STEP`): Mở rộng từ 18 lên **30**, căn trái.
-    - Cột D (`OB / REF`): Mở rộng lên **18**, căn giữa.
-    - Cột F (`MESSAGE`): Độ rộng **90**, căn trái.
-- **Đồng bộ hóa sheet CONFIG & LEDGER**:
-  - Cập nhật ô `CONFIG!B2` thành `OB_V1_RC42` (khắc phục nhãn cũ `OB_V1_RC34`).
-  - Tối ưu độ rộng cột sheet `LEDGER` (`UPDATED AT` = 20, `MESSAGE` = 35).
+## Key Improvements in RC43
+- **Xác thực trực tiếp OB từ VL06O (Direct VL06O Receipt Verification - Nhánh 4007)**:
+  - Khắc phục lỗi dừng sau khi tạo thành công OB mới: `VL10D_TARGET_READ_WAIT: OB=...; VL03N; Thieu field LIPS-LFIMG row 0. Can MAP layout VL02N` dẫn tới mất kế hoạch tạo OB.
+  - Khi OB được hệ thống tự động nhận diện từ VL06O (`VL06O_AUTO_DISCOVERED`), RC43 trực tiếp xác thực số lượng và thông tin từ bộ nhớ `VL06O_DATA` mà không cần mở VL03N.
+  - Chuyển trường `LIPS-MATNR` và `LIPS-LFIMG` sang đọc an toàn (`EDCOptionalTableField`), triệt tiêu lỗi 4205 do layout SAP cá nhân.
+- **Tái sử dụng màn hình Due VL10D - Chạy VL10D duy nhất 1 lần (Single VL10D Run)**:
+  - Không mở lại màn hình chọn và truy vấn VL10D lần 2 khi đã có sẵn danh sách Due hợp lệ trong bộ nhớ đệm (`mEDCLastDue`).
+- **Phản hồi trạng thái thành công rõ ràng trên Nút 1 (User Feedback)**:
+  - Cập nhật thông báo rõ ràng trên ô trạng thái: `TAO OB THANH CONG: ... ALLOC; SAN SANG BAM NUT 2; MODE=...` khi Nút 1 tạo xong OB mới.
 
 ---
 
@@ -30,24 +23,22 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC42 (10/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC43 (10/10/2026)
 
-### 📦 Các tệp đính kèm RC42
+### 📦 Các tệp đính kèm RC43
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC42_HANDOFF.zip`** | 731,125 bytes | `957A35CDA3BE65AE8F2A5C889F54D42F99110C2B6FCFFE828ACB46234BA70155` | **Gói bàn giao đầy đủ RC42 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC42.xlsm`** | 762,168 bytes | `03F4B9AD3120901197B49D8A3DE6EE1A9D6C517E9659A3FB4D88A2E82A9432ED` | Tệp Excel Macro phát hành RC42 (Đã dọn dẹp & Compile) |
-| **`VBA_RC41_TO_RC42.diff`** | 4,331 bytes | `4348CEBC908E931DE040563F87B772D415C6252BE1F02763F9963A105DD8E3A2` | Chi tiết bản vá mã nguồn VBA từ RC41 lên RC42 |
-| **`CHANGELOG_RC42.md`** | 5,249 bytes | `9DF3002466DF71FF57676943F4B96EFFC272A400A542DFB8649204C1FDCDEF47` | Nhật ký thay đổi và giải pháp kỹ thuật RC42 |
+| **`RC43_HANDOFF.zip`** | 742,689 bytes | `FDCF2FFE3354D6F3037D8415C83D5FB294BC0743928F2C417B11DEFBC6A595CC` | **Gói bàn giao đầy đủ RC43 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC43.xlsm`** | 769,253 bytes | `A406F9265328781F6BBDB2F63F7158666257976D9333ECFBD6CC4445F2FA4F6F` | Tệp Excel Macro phát hành RC43 (Đã dọn dẹp & Compile) |
+| **`VBA_RC42_TO_RC43.diff`** | 23,958 bytes | `7AFD27F647795F57A89A487E37F3FD7440609FF9A79BAC78E66C35867C9C4E7B` | Chi tiết bản vá mã nguồn VBA từ RC42 lên RC43 |
+| **`CHANGELOG_RC43.md`** | 4,779 bytes | `401D8D0DA146FA9B1A29A1E0B86BDCA5898EF7D0087CABC10CF14BD5643BCBE0` | Nhật ký thay đổi và giải pháp kỹ thuật RC43 |
 
-### 🚀 Điểm cải tiến cốt lõi trên RC42:
-1. **[Mở khóa tạo Delivery VL10D ở chế độ APPLY - Nhánh 4007]:**  
-   - Gỡ bỏ điểm nghẽn `GROUP_PREPARE: Group due missing Material/STO/Item; no Create`.
-   - Nhận diện đúng STO Due trên Classic View của VL10D và gửi lệnh tạo Delivery sang SAP.
-2. **[Chuẩn hóa hiển thị ngày tháng và UI sheet LOG]:**  
-   - Cột A (`TIMESTAMP`) luôn hiển thị định dạng ngày giờ chuẩn (`10/10/26 10:54 PM`), không còn bị hiển thị số thực thô.
-   - Cột B (`RUN ID`) và Cột C (`STEP`) được mở rộng độ rộng, căn lề khoa học, chống tràn chữ.
+### 🚀 Điểm cải tiến cốt lõi trên RC43:
+1. **[Xác thực trực tiếp OB từ VL06O - Bỏ mở VL03N gây lỗi Layout]:**  
+   - Tự động lấy số lượng và tham chiếu từ bảng dữ liệu VL06O trong RAM, triệt tiêu lỗi thiếu field `LIPS-LFIMG` trên VL03N.
+2. **[Tối ưu hóa phiên VL10D - Không mở lặp lại lần 2]:**  
+   - Tái sử dụng màn hình Due đang mở để thực hiện Background Delivery, tăng tốc xử lý và loại bỏ các bước thao tác thừa trên SAP GUI.
 3. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
    - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
    - Gắn macro nút bấm chuẩn xác (`OB_Check` và `OB_Execute`).
@@ -56,6 +47,11 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC42 (10/10/2026)
+* **`RC42_HANDOFF.zip`**: SHA-256 `957A35CDA3BE65AE8F2A5C889F54D42F99110C2B6FCFFE828ACB46234BA70155`
+* **`261010_OB_TOOL_V1_RC42.xlsm`**: SHA-256 `03F4B9AD3120901197B49D8A3DE6EE1A9D6C517E9659A3FB4D88A2E82A9432ED`
+* Mở khóa tạo Delivery VL10D ở chế độ APPLY (Nhánh 4007), chuẩn hóa hiển thị ngày tháng và UI sheet LOG.
 
 ### OB Tool V1 RC41 (10/10/2026)
 * **`RC41_HANDOFF.zip`**: SHA-256 `C058C5604AB6E1EB880717A711C63A2E50A178667A2E2514E1B65B9332ECE552`
