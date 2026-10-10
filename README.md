@@ -1,39 +1,34 @@
-# OB Tool V1 RC35 R5 — Public Release & Handoff Package
+# OB Tool Releases — Public Release & Handoff Repository
 
-Bản nâng cấp Excel Macro giải quyết luồng Plant 4007 STO (pending create) và bảo toàn 4 Invariants nhánh 3001 Shop Body cho công cụ OB Tool (SAP / Excel).
+Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro cho công cụ **OB Tool (SAP / Excel)**.
 
 ---
 
-## 📦 Tệp đính kèm trong kho lưu trữ
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC36 (10/10/2026)
+
+### 📦 Các tệp đính kèm RC36
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC35_R5_HANDOFF.zip`** | 970,406 bytes | `BBAAD4ABAF3C91C3B428C5CF177CEEC0D8FE94585F070ACBFFC4839CDD122A74` | **Gói bàn giao đầy đủ (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC35_R5.xlsm`** | 1,059,734 bytes | `98EE42AD70097067436EFD674AE069F1B9C2A72D66BEC3D4856394E2A833FF53` | Tệp Excel Macro phát hành RC35 R5 |
-| **`VBA_R4_TO_R5.diff`** | 4,505 bytes | — | Chi tiết bản vá mã nguồn VBA từ R4 lên R5 |
-| **`REPAIR_AND_QA.md`** | 1,917 bytes | — | Báo cáo nghiệm thu kỹ thuật và kiểm thử native |
-| **`SHA256_MANIFEST.json`** | 1,299 bytes | — | Bảng mã băm xác thực toàn vẹn từng thành phần |
+| **`RC36_HANDOFF.zip`** | 980,267 bytes | `35D034EC709FAB0724FDD50C3E0C525D8B5D362F7C3486D2F6929EE02D14B6B7` | **Gói bàn giao đầy đủ RC36 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC36.xlsm`** | 1,070,522 bytes | `5BA00C8A1D6744A9CB2291A2DB924E26DA890B16EF1F43143796761EB1D609D7` | Tệp Excel Macro phát hành RC36 |
+| **`VBA_RC35_TO_RC36.diff`** | 207 dòng | — | Chi tiết bản vá mã nguồn VBA từ RC35 lên RC36 |
+| **`CHANGELOG_RC36.md`** | 1,845 bytes | — | Nhật ký thay đổi và giải pháp kỹ thuật RC36 |
+
+### 🚀 Điểm cải tiến cốt lõi trên RC36:
+* **Tự động bắt số OB từ VL06O sau khi tạo ở VL10D:**  
+  Không cần người dùng phải tra Creation Log thủ công hay copy-paste biên nhận vào sheet CONFIG. Tool tự động làm mới VL06O và đối soát theo bộ 4 tiêu chí:
+  1. **Mã STO** (`VGBEL`) trùng với STO đang xử lý.
+  2. **Mã Vật tư** (`MATNR`) trùng với mã INPUT.
+  3. **Người tạo** (`ERNAM`) trùng khớp với SAP User ID đang chạy tool (`session.Info.User`).
+  4. **Trạng thái** (`CANDIDATE`, GM = 'A', chưa gán SLoc/Batch).
+* **Biên dịch & Kiểm thử:** VBE Debug Compile PASS 100%, bảo toàn 100% 4 Invariants nhánh 3001 Shop Body.
 
 ---
 
-## 🔍 Điểm cải tiến & Sửa lỗi trọng tâm trên RC35 R5
+## 📜 Lịch sử bản phát hành trước đó
 
-1. **Khắc phục lỗi VBA Active Error Handler (`ModuleMain.bas:3740-3751`):**
-   * Trong vòng lặp `targeted readback` (VL03N retry handler), bổ sung `Resume RetryWait` để giải phóng cờ lỗi của VBA trước khi chuyển sang lần thử 2.
-   * Ngăn chặn việc VBA ném lỗi thô ra ngoài và đảm bảo đóng gói chính xác thông báo chẩn đoán `GROUP_OB_READBACK_WAIT: ...; no Create retry.` khi không tìm thấy OB.
-
-2. **Cổng kiểm soát danh sách snapshot (`EDCEnsureGroupInSnapshot`):**
-   * Xác thực và đối soát OB/delivery item vừa tạo trên snapshot `VL06O_DATA` trước khi ghi nhận hoàn tất.
-   * Ngăn chặn việc kế hoạch phân bổ sử dụng snapshot cũ gây sai lệch.
-
-3. **Bảo toàn tính an toàn giao dịch SAP:**
-   * Giữ nguyên khóa pending `BATCH|REQ_20261010_042845_1|3601034990` (Material `BIW32012300AA`, STO item `70`, Qty `28`) để chống trùng lặp Create khi chưa có biên lai thật từ SAP Creation Log.
-   * Giữ nguyên 100% 4 Invariants cho nhánh 3001 Shop Body (WholeBatchGate, skip khi có sẵn SLoc, xóa sạch non-plan items, SLoc bắt buộc 100% dòng xuất).
-
----
-
-## 🧪 Kết quả kiểm thử nội bộ
-
-* **VBE Debug Compile:** 100% PASS (0 lỗi cú pháp, Macro shape bindings nguyên vẹn).
-* **Native Caller-Gate Tests:** 20/20 ca kiểm thử đạt chuẩn PASS (100%).
-* **Tình trạng SAP Live:** NOT_RUN (chưa kết nối phiên SAP GUI trực tiếp; tệp ở chế độ Code Ready / Local QA Verified).
+### OB Tool V1 RC35 R5
+* **`RC35_R5_HANDOFF.zip`**: SHA-256 `BBAAD4ABAF3C91C3B428C5CF177CEEC0D8FE94585F070ACBFFC4839CDD122A74`
+* **`261010_OB_TOOL_V1_RC35_R5.xlsm`**: SHA-256 `98EE42AD70097067436EFD674AE069F1B9C2A72D66BEC3D4856394E2A833FF53`
+* Khắc phục lỗi Active Error Handler (`Resume RetryWait`) và chốt chặn `EDCEnsureGroupInSnapshot`.
