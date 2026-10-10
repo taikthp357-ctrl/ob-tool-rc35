@@ -1,19 +1,20 @@
-# OB TOOL V1 RC43
+# OB TOOL V1 RC44
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC43.xlsm`  
-Canonical SHA256: `A406F9265328781F6BBDB2F63F7158666257976D9333ECFBD6CC4445F2FA4F6F`  
-Handoff Archive: `RC43_HANDOFF.zip`  
-Archive SHA256: `FDCF2FFE3354D6F3037D8415C83D5FB294BC0743928F2C417B11DEFBC6A595CC`
+Canonical XLSM: `261010_OB_TOOL_V1_RC44.xlsm`  
+Canonical SHA256: `FF3873E87F37F05C5D4952EF8AEE22D4B11BE73F4992F200A463F9DAF063AE12`  
+Handoff Archive: `RC44_HANDOFF.zip`  
+Archive SHA256: `B38CE54348DDF3D469767E10AB8FD84E440BDC8755FDBF420280614445803C38`
 
-## Key Improvements in RC43
-- **Xác thực trực tiếp OB từ VL06O (Direct VL06O Receipt Verification - Nhánh 4007)**:
-  - Khắc phục lỗi dừng sau khi tạo thành công OB mới: `VL10D_TARGET_READ_WAIT: OB=...; VL03N; Thieu field LIPS-LFIMG row 0. Can MAP layout VL02N` dẫn tới mất kế hoạch tạo OB.
-  - Khi OB được hệ thống tự động nhận diện từ VL06O (`VL06O_AUTO_DISCOVERED`), RC43 trực tiếp xác thực số lượng và thông tin từ bộ nhớ `VL06O_DATA` mà không cần mở VL03N.
-  - Chuyển trường `LIPS-MATNR` và `LIPS-LFIMG` sang đọc an toàn (`EDCOptionalTableField`), triệt tiêu lỗi 4205 do layout SAP cá nhân.
-- **Tái sử dụng màn hình Due VL10D - Chạy VL10D duy nhất 1 lần (Single VL10D Run)**:
-  - Không mở lại màn hình chọn và truy vấn VL10D lần 2 khi đã có sẵn danh sách Due hợp lệ trong bộ nhớ đệm (`mEDCLastDue`).
-- **Phản hồi trạng thái thành công rõ ràng trên Nút 1 (User Feedback)**:
-  - Cập nhật thông báo rõ ràng trên ô trạng thái: `TAO OB THANH CONG: ... ALLOC; SAN SANG BAM NUT 2; MODE=...` khi Nút 1 tạo xong OB mới.
+## Key Improvements in RC44
+- **Mở khóa lọc danh sách nhiều vật tư trên VL10D (`EDCSetGroupMaterialFilter`)**:
+  - Khắc phục lỗi lặp lại `-2147217243; Cannot verify pasted Material selection table.` khi nhập $> 1$ mã vật tư.
+  - Chuẩn hóa: Sau khi dán clipboard (`btn[24]`), tool bấm F8 (`btn[8]`) xác nhận và đóng popup, quay lại màn hình chính điền Plant 4007, Supplying Plant 3093 và nhấn F8 truy vấn VL10D.
+- **Bảo toàn số lượng Due đọc được trên Classic View VL10D (`EDC_ClassicDue`)**:
+  - Khắc phục lỗi `eligible rows = 0` khi STO thực tế có Due (ví dụ 399 pcs) do xô lệch toạ độ cột `Open` làm triệt tiêu số lượng.
+  - Thêm điều kiện an toàn: Chỉ giới hạn `openQty` khi `openQty > 0`. Bổ sung quét lân cận $\pm 6$ cột nếu ô số lượng bị dịch toạ độ.
+- **Thuật toán tạo OB khớp trọn vẹn theo WholeBatchGate & FIFO (`EDCWholeBatchFitQty`)**:
+  - Khi $\text{STO Due} < \text{need}$, tool tự động duyệt danh sách lô FIFO để gom các lô nguyên có tổng $\le \text{STO Due}$ (ví dụ: Due = 399 $\implies$ gom 2 lô $161 + 200 = 361$ pcs).
+  - Đặt số lượng tạo OB đúng bằng 361 pcs, giúp Nút 2 mở VL02N chia vừa khít 2 lô nguyên, không bị dư thừa 38 pcs, bảo toàn 100% WholeBatchGate!
 
 ---
 
@@ -23,30 +24,33 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC43 (10/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC44 (11/10/2026)
 
-### 📦 Các tệp đính kèm RC43
+### 📦 Các tệp đính kèm RC44
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC43_HANDOFF.zip`** | 742,689 bytes | `FDCF2FFE3354D6F3037D8415C83D5FB294BC0743928F2C417B11DEFBC6A595CC` | **Gói bàn giao đầy đủ RC43 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC43.xlsm`** | 769,253 bytes | `A406F9265328781F6BBDB2F63F7158666257976D9333ECFBD6CC4445F2FA4F6F` | Tệp Excel Macro phát hành RC43 (Đã dọn dẹp & Compile) |
-| **`VBA_RC42_TO_RC43.diff`** | 23,958 bytes | `7AFD27F647795F57A89A487E37F3FD7440609FF9A79BAC78E66C35867C9C4E7B` | Chi tiết bản vá mã nguồn VBA từ RC42 lên RC43 |
-| **`CHANGELOG_RC43.md`** | 4,779 bytes | `401D8D0DA146FA9B1A29A1E0B86BDCA5898EF7D0087CABC10CF14BD5643BCBE0` | Nhật ký thay đổi và giải pháp kỹ thuật RC43 |
+| **`RC44_HANDOFF.zip`** | 741,894 bytes | `B38CE54348DDF3D469767E10AB8FD84E440BDC8755FDBF420280614445803C38` | **Gói bàn giao đầy đủ RC44 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC44.xlsm`** | 769,211 bytes | `FF3873E87F37F05C5D4952EF8AEE22D4B11BE73F4992F200A463F9DAF063AE12` | Tệp Excel Macro phát hành RC44 (Đã dọn dẹp & Compile) |
+| **`VBA_RC43_TO_RC44.diff`** | 15,156 bytes | `973F6B9006D3BB13C1C65C09D30FAECB5D00CEBD0DE8A2A93CA91F7994C4B3ED` | Chi tiết bản vá mã nguồn VBA từ RC43 lên RC44 |
+| **`CHANGELOG_RC44.md`** | 5,310 bytes | `2B6C76E1ADEC33EF84604EA2A3F97371F646C9A254B8F09C2CAA2CBAD05D9394` | Nhật ký thay đổi và giải pháp kỹ thuật RC44 |
 
-### 🚀 Điểm cải tiến cốt lõi trên RC43:
-1. **[Xác thực trực tiếp OB từ VL06O - Bỏ mở VL03N gây lỗi Layout]:**  
-   - Tự động lấy số lượng và tham chiếu từ bảng dữ liệu VL06O trong RAM, triệt tiêu lỗi thiếu field `LIPS-LFIMG` trên VL03N.
-2. **[Tối ưu hóa phiên VL10D - Không mở lặp lại lần 2]:**  
-   - Tái sử dụng màn hình Due đang mở để thực hiện Background Delivery, tăng tốc xử lý và loại bỏ các bước thao tác thừa trên SAP GUI.
-3. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
+### 🚀 Điểm cải tiến cốt lõi trên RC44:
+1. **[Mở khóa Multiple Material Filter trên VL10D]:** Dán danh sách vật tư và bấm F8 đóng popup mượt mà, không bị văng lỗi kiểm tra bảng.
+2. **[Bảo toàn số lượng Due trên Classic View]:** Nhận diện chính xác Due 399 pcs, không bị lỗi cột Open ép số lượng về 0.
+3. **[Khớp số lượng tạo OB theo WholeBatchGate & FIFO]:** Tính toán số lượng tạo OB bằng tổng các lô nguyên khả dụng (361 pcs), giúp Nút 2 gán lô vừa khít 100%.
+4. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
    - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
    - Gắn macro nút bấm chuẩn xác (`OB_Check` và `OB_Execute`).
-   - Bảo toàn trọn vẹn 4 Invariants, WholeBatchGate và nguyên tắc FIFO.
 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC43 (10/10/2026)
+* **`RC43_HANDOFF.zip`**: SHA-256 `FDCF2FFE3354D6F3037D8415C83D5FB294BC0743928F2C417B11DEFBC6A595CC`
+* **`261010_OB_TOOL_V1_RC43.xlsm`**: SHA-256 `A406F9265328781F6BBDB2F63F7158666257976D9333ECFBD6CC4445F2FA4F6F`
+* Trực tiếp xác thực OB từ VL06O (bỏ VL03N gây lỗi layout), tái sử dụng màn hình Due VL10D chạy 1 lần duy nhất, thông báo phản hồi thành công trên Nút 1.
 
 ### OB Tool V1 RC42 (10/10/2026)
 * **`RC42_HANDOFF.zip`**: SHA-256 `957A35CDA3BE65AE8F2A5C889F54D42F99110C2B6FCFFE828ACB46234BA70155`
