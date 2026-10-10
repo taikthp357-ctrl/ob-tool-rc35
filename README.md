@@ -1,3 +1,17 @@
+# OB TOOL V1 RC40
+
+Canonical XLSM: `261010_OB_TOOL_V1_RC40.xlsm`  
+Canonical SHA256: `191D37DAD2E884A5B26026B9332F2BF01CB0C64C8427D9985B5F267DEFAAF4C7`  
+Handoff Archive: `RC40_HANDOFF.zip`  
+Archive SHA256: `6E3B0C9B59815808EFEF63B5AFC1843C70708623F8947069C4BE9708A5E56574`
+
+## Key Improvements in RC40
+- **Smart Lock Backoff (Nhánh 3001)**: Tự động chờ 6s-5s (2 nhịp retry) khi gặp SAP `DO_AUTO` khóa PO, hiển thị đếm ngược trên Excel Status Bar và ghi log `WAIT_LOCK_BACKOFF`.
+- **Mở khóa VL10D Initial Selection (Nhánh 4007)**: Khôi phục chuẩn RC34, bỏ chặn cứng `ST_RESWK-LOW` để gửi phím F8 (`sendVKey 8`) vào danh sách Due của VL10D.
+- **Tự động dọn dẹp Pending cũ**: Xóa sạch cờ `VL10D_PENDING_KEY` khi bắt đầu `NEW_REQUEST` hoặc khi mã hàng đổi khác INPUT.
+
+---
+
 # OB Tool Releases — Public Release & Handoff Repository
 
 Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro cho công cụ **OB Tool (SAP / Excel)**.
