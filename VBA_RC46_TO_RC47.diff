@@ -172,10 +172,11 @@
  ModuleLog.WriteLog "VL10D_GROUP_LIST_READY", "Exact receipt OB/items present and allocatable in current VL06O snapshot; pending may commit"
  End Sub
  
-@@ -4341,3 +4356,4 @@
+@@ -4341,3 +4356,5 @@
  End Function
  
  
++
 +
 
 --- RC46/ModuleSAP.bas
@@ -205,7 +206,7 @@
  Dim sText As String, sType As String
  On Error GoTo Failed
  
-@@ -5318,23 +5325,44 @@
+@@ -5318,23 +5325,46 @@
  End If
  
  ModuleLog.WriteLog "DELETE_OB_SUBMIT", "Triggering Delete command for draft OB=" & ob
@@ -246,7 +247,9 @@
 -  ses.findById("wnd[0]/mbar/menu[0]/menu[6]").Select
 -  If Err.Number <> 0 Then ses.findById("wnd[0]").sendVKey 24
 -  On Error GoTo Failed
-+  Set btnDel = SAPX_FindById(ses, "wnd[0]/tbar[0]/btn[14]")
++  ' Try Application Toolbar btn[14] (standard VL02N delete trash can per VBS recording)
++  Set btnDel = SAPX_FindById(ses, "wnd[0]/tbar[1]/btn[14]")
++  If btnDel Is Nothing Then Set btnDel = SAPX_FindById(ses, "wnd[0]/tbar[0]/btn[14]")
 +  If Not btnDel Is Nothing Then
 +   btnDel.Press
 +  Else
@@ -262,13 +265,13 @@
  If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
   Set btnYes = SAPX_FindById(ses, "wnd[1]/usr/btnSPOP-OPTION1")
   If btnYes Is Nothing Then Set btnYes = SAPX_FindById(ses, "wnd[1]/usr/btnSPOP-VAROPTION1")
-@@ -5353,14 +5381,20 @@
+@@ -5353,14 +5383,20 @@
  sType = SAPX_StatusType(ses)
  ModuleLog.WriteLog "DELETE_OB_RESULT", "OB=" & ob & "; type=" & sType & "; text=" & sText
  
-+' CRITICAL: If status type is "E", it is an absolute ERROR - do not treat as deleted!
-+If sType = "E" Then
-+ ModuleLog.WriteLog "DELETE_OB_ERROR", "OB=" & ob & " deletion rejected by SAP: " & sText
++' CRITICAL: If status type is "E" or function code rejected, it is an absolute ERROR!
++If sType = "E" Or InStr(1, sText, "Function code cannot be selected", vbTextCompare) > 0 Then
++ ModuleLog.WriteLog "DELETE_OB_REJECTED", "OB=" & ob & "; SAP: " & sText
 + SAPX_DeleteDraftOB = False
 + Exit Function
 +End If
@@ -287,17 +290,19 @@
  Else
   SAPX_DeleteDraftOB = False
  End If
-@@ -5490,3 +5524,4 @@
+@@ -5490,3 +5526,5 @@
  End Function
  
  
 +
++
 
 --- RC46/ModuleHelper.bas
 +++ RC47/ModuleHelper.bas
-@@ -516,3 +516,4 @@
+@@ -516,3 +516,5 @@
  
  
  
++
 +
 
