@@ -1,19 +1,26 @@
-# OB TOOL V1 RC41
+# OB TOOL V1 RC42
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC41.xlsm`  
-Canonical SHA256: `6D2B1E08ED2C8CD3C3287420B755FEAF79C1ECBF2C09D281604E7ED178644D3A`  
-Handoff Archive: `RC41_HANDOFF.zip`  
-Archive SHA256: `C058C5604AB6E1EB880717A711C63A2E50A178667A2E2514E1B65B9332ECE552`
+Canonical XLSM: `261010_OB_TOOL_V1_RC42.xlsm`  
+Canonical SHA256: `03F4B9AD3120901197B49D8A3DE6EE1A9D6C517E9659A3FB4D88A2E82A9432ED`  
+Handoff Archive: `RC42_HANDOFF.zip`  
+Archive SHA256: `957A35CDA3BE65AE8F2A5C889F54D42F99110C2B6FCFFE828ACB46234BA70155`
 
-## Key Improvements in RC41
-- **Phân bổ STO Due từng phần (Partial STO Due Allocation & Dynamic Create - Nhánh 4007)**:
-  - Cho phép chọn STO có số lượng Due nhỏ hơn tổng nhu cầu cần bù (`missing`), thay vì đòi hỏi cứng `>= missing`.
-  - Tự động tính số lượng tạo OB: $\text{CreateQty} = \min(\text{missing}, \text{Due})$.
-  - Tạo mới OB ngay qua VL10D trong Nút 1, tự động refresh nạp OB vào VL06O, phân bổ đủ lô cho số lượng khả dụng và báo cáo rõ ràng phần còn thiếu do hạn mức STO.
-- **Bảo toàn thành quả 100% của Nhánh 3001**:
-  - 19/19 OBs thành công tuyệt đối trên dữ liệu thực tế.
-  - Vận hành siêu tốc với Fast Save Mode (lưu không cần qua VL03N) và Direct Item Locate (không cuộn trang xuống đáy, không quét dư thừa).
-  - Tự động giải phóng khóa ngầm SAP `DO_AUTO` với cơ chế Smart Lock Backoff (2 nhịp retry 6s/5s).
+## Key Improvements in RC42
+- **Mở khóa tạo Delivery VL10D ở chế độ APPLY (Nhánh 4007)**:
+  - Khắc phục lỗi dừng trước khi bấm nút tạo Delivery: `VL10D_GROUP_WAIT: GROUP_PREPARE; -2147217243; Group due missing Material/STO/Item; no Create`.
+  - Nguyên nhân do cột Supplying Plant (`RESWK`) không hiển thị trên danh sách Classic View của VL10D khiến `a(10)` rỗng và trượt điều kiện lọc nguồn 3093.
+  - RC42 gán trực tiếp nguồn 3093 và nới lỏng điều kiện kiểm tra cột nguồn thành `(CStr(a(10)) = "" Or CStr(a(10)) = "3093")`, cho phép tiến thẳng tới bước gửi lệnh tạo Delivery sang SAP.
+  - Bổ sung kiểm tra tooltip hỗ trợ cả nhãn `"background"` và `"hintergrund"` cho nút lệnh tạo Delivery nền.
+- **Chuẩn hóa giao diện và định dạng ngày tháng sheet LOG (UI & Formatting)**:
+  - Khắc phục lỗi cột `TIMESTAMP` hiển thị số thực thô `46305,95369`: Đặt chuẩn `NumberFormat = "m/d/yy h:mm AM/PM"` và `.Value = Now`, đảm bảo mọi dòng ghi log luôn hiển thị đúng ngày giờ (ví dụ: `10/10/26 10:54 PM`).
+  - Mở rộng độ rộng các cột sheet LOG để triệt tiêu hoàn toàn hiện tượng tràn chữ, đè cột:
+    - Cột B (`RUN ID`): Mở rộng từ 14 lên **20**, căn giữa.
+    - Cột C (`STEP`): Mở rộng từ 18 lên **30**, căn trái.
+    - Cột D (`OB / REF`): Mở rộng lên **18**, căn giữa.
+    - Cột F (`MESSAGE`): Độ rộng **90**, căn trái.
+- **Đồng bộ hóa sheet CONFIG & LEDGER**:
+  - Cập nhật ô `CONFIG!B2` thành `OB_V1_RC42` (khắc phục nhãn cũ `OB_V1_RC34`).
+  - Tối ưu độ rộng cột sheet `LEDGER` (`UPDATED AT` = 20, `MESSAGE` = 35).
 
 ---
 
@@ -23,24 +30,24 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC41 (10/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC42 (10/10/2026)
 
-### 📦 Các tệp đính kèm RC41
+### 📦 Các tệp đính kèm RC42
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC41_HANDOFF.zip`** | 738,739 bytes | `C058C5604AB6E1EB880717A711C63A2E50A178667A2E2514E1B65B9332ECE552` | **Gói bàn giao đầy đủ RC41 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC41.xlsm`** | 787,464 bytes | `6D2B1E08ED2C8CD3C3287420B755FEAF79C1ECBF2C09D281604E7ED178644D3A` | Tệp Excel Macro phát hành RC41 (Đã dọn dẹp & Compile) |
-| **`VBA_RC40_TO_RC41.diff`** | 3,933 bytes | `8264CEC4FA8F31FB686439EE69C4C17BF5EC6622D1332672F3B556474A75958A` | Chi tiết bản vá mã nguồn VBA từ RC40 lên RC41 |
-| **`CHANGELOG_RC41.md`** | 4,200 bytes | `70C88BDEDBB5FB676CFC82AEFEC4F3454532EAB323660C803F4CE2DFF284D54F` | Nhật ký thay đổi và giải pháp kỹ thuật RC41 |
+| **`RC42_HANDOFF.zip`** | 731,125 bytes | `957A35CDA3BE65AE8F2A5C889F54D42F99110C2B6FCFFE828ACB46234BA70155` | **Gói bàn giao đầy đủ RC42 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC42.xlsm`** | 762,168 bytes | `03F4B9AD3120901197B49D8A3DE6EE1A9D6C517E9659A3FB4D88A2E82A9432ED` | Tệp Excel Macro phát hành RC42 (Đã dọn dẹp & Compile) |
+| **`VBA_RC41_TO_RC42.diff`** | 4,331 bytes | `4348CEBC908E931DE040563F87B772D415C6252BE1F02763F9963A105DD8E3A2` | Chi tiết bản vá mã nguồn VBA từ RC41 lên RC42 |
+| **`CHANGELOG_RC42.md`** | 5,249 bytes | `9DF3002466DF71FF57676943F4B96EFFC272A400A542DFB8649204C1FDCDEF47` | Nhật ký thay đổi và giải pháp kỹ thuật RC42 |
 
-### 🚀 Điểm cải tiến cốt lõi trên RC41:
-1. **[Partial STO Due Allocation & Dynamic Create - Nhánh 4007]:**  
-   - Bỏ điều kiện cứng `candidate(4) >= missing`. Chấp nhận mọi STO còn Due > 0.
-   - Tính toán lượng tạo động: $\text{CreateQty} = \min(\text{missing}, \text{Due})$.
-   - Khi có STO Due 280 pcs mà nhu cầu là 680 pcs $\rightarrow$ Hệ thống vẫn duyệt tạo OB 280 pcs, nạp vào danh sách và phân bổ ngay lập tức cho 7 batch ($7 \times 40 = 280$), đồng thời báo cáo rõ 400 pcs còn lại thiếu STO.
-2. **[Tự động đồng bộ và nạp VL06O sau khi tạo OB]:**  
-   - Ngay sau khi VL10D sinh số OB mới, tự động refresh VL06O và nạp OB vào RAM để sẵn sàng cho Nút 2 xử lý điền SLoc 3093 và Batch.
+### 🚀 Điểm cải tiến cốt lõi trên RC42:
+1. **[Mở khóa tạo Delivery VL10D ở chế độ APPLY - Nhánh 4007]:**  
+   - Gỡ bỏ điểm nghẽn `GROUP_PREPARE: Group due missing Material/STO/Item; no Create`.
+   - Nhận diện đúng STO Due trên Classic View của VL10D và gửi lệnh tạo Delivery sang SAP.
+2. **[Chuẩn hóa hiển thị ngày tháng và UI sheet LOG]:**  
+   - Cột A (`TIMESTAMP`) luôn hiển thị định dạng ngày giờ chuẩn (`10/10/26 10:54 PM`), không còn bị hiển thị số thực thô.
+   - Cột B (`RUN ID`) và Cột C (`STEP`) được mở rộng độ rộng, căn lề khoa học, chống tràn chữ.
 3. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
    - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
    - Gắn macro nút bấm chuẩn xác (`OB_Check` và `OB_Execute`).
@@ -49,6 +56,11 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC41 (10/10/2026)
+* **`RC41_HANDOFF.zip`**: SHA-256 `C058C5604AB6E1EB880717A711C63A2E50A178667A2E2514E1B65B9332ECE552`
+* **`261010_OB_TOOL_V1_RC41.xlsm`**: SHA-256 `6D2B1E08ED2C8CD3C3287420B755FEAF79C1ECBF2C09D281604E7ED178644D3A`
+* Hỗ trợ phân bổ STO Due từng phần $\text{CreateQty} = \min(\text{missing}, \text{Due})$, tự động lập kế hoạch tạo 280 pcs cho nhánh 4007.
 
 ### OB Tool V1 RC40 (10/10/2026)
 * **`RC40_HANDOFF.zip`**: SHA-256 `6E3B0C9B59815808EFEF63B5AFC1843C70708623F8947069C4BE9708A5E56574`
@@ -74,8 +86,3 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 * **`RC36_HANDOFF.zip`**: SHA-256 `35D034EC709FAB0724FDD50C3E0C525D8B5D362F7C3486D2F6929EE02D14B6B7`
 * **`261010_OB_TOOL_V1_RC36.xlsm`**: SHA-256 `5BA00C8A1D6744A9CB2291A2DB924E26DA890B16EF1F43143796761EB1D609D7`
 * Tự động bắt số OB từ VL06O theo STO + Material + Người tạo (ERNAM).
-
-### OB Tool V1 RC35 R5 (10/10/2026)
-* **`RC35_R5_HANDOFF.zip`**: SHA-256 `BBAAD4ABAF3C91C3B428C5CF177CEEC0D8FE94585F070ACBFFC4839CDD122A74`
-* **`261010_OB_TOOL_V1_RC35_R5.xlsm`**: SHA-256 `98EE42AD70097067436EFD674AE069F1B9C2A72D66BEC3D4856394E2A833FF53`
-* Khắc phục lỗi Active Error Handler (`Resume RetryWait`) và chốt chặn `EDCEnsureGroupInSnapshot`.
