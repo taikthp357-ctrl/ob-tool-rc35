@@ -1,22 +1,25 @@
-# OB TOOL V1 RC46
+# OB TOOL V1 RC47
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC46.xlsm`  
-Canonical SHA256: `D3121B65845EBDFDA4AEF1DA84C9BB7B92D7E4E496D8A18918B98FD7C2F5D5A7`  
-Handoff Archive: `RC46_HANDOFF.zip`  
-Archive SHA256: `AA012032530A6DE17D10AAA5A4C2DA8BD4A1F4798B678E3BFAC577F31A39CDAC`
+Canonical XLSM: `261010_OB_TOOL_V1_RC47.xlsm`  
+Canonical SHA256: `B90CA4209A13806027C2234D32608E2F2C583F76074979BC048C3C450C3604EC`  
+Handoff Archive: `RC47_HANDOFF.zip`  
+Archive SHA256: `A9F845EC80F4DB7D0C03B78E9E5060964A3559E90A0838BDE2EAD022D002ACA8`
 
-## Key Improvements in RC46
-- **Nguyên tắc "Lượt nào ra lượt đó" - Bảo vệ trọn vẹn Candidate OB có sẵn**:
-  - Khắc phục triệt để lỗi đánh dấu `BLOCK_OB: EDC STO/MATERIAL SCOPE BLOCK` lây nhiễm toàn bộ Delivery Order (ví dụ DO `1012699408` chứa 7 mã sẵn có).
-  - Phân tách độc lập phạm vi: chỉ chặn từng dòng vi phạm (`BLOCK_ITEM`), tuyệt đối không lây nhiễm sang toàn bộ OB hay các mặt hàng hợp lệ khác.
-  - Sau khi Nút 1 quét và gộp VL06O, toàn bộ ứng viên hợp lệ của lượt trước được bảo toàn nguyên vẹn để người dùng bấm Nút 2 (`OB_Execute`) chia lô ngay lập tức.
-- **Cơ chế "Tự can và tự tạo lại" (Auto-Cancel 3001 Draft & Immediate Auto-Retry VL10D)**:
-  - Khi SAP thiếu hụt số lượng do Plant 3001 chiếm giữ tồn tại 3093, tool tự động tìm và xóa draft OB 3001 (chưa gán SLoc, chưa gán Batch, sát nhất với lượng thiếu).
-  - Ngay sau khi xóa thành công giải phóng tồn, hệ thống **tự động gọi tạo lại ngay trên VL10D (`AUTO_RETRY_VL10D`) trong cùng một phiên chạy**, tự động nhận diện DO mới sinh ra và commit vào kế hoạch!
-- **Khắc phục lỗi xóa Draft OB trên VL02N**:
-  - Chuyển đổi từ phím ảo `Shift+F12` (bị vô hiệu hóa trên Dynpro 4001 gây lỗi `The virtual key is not enabled`) sang mã hàm SAP chuẩn `LOES` trong OKCode field kết hợp toolbar `btn[14]` và menu, bảo đảm 100% xóa sạch draft OB trên SAP GUI.
-- **Tải lại toàn diện danh mục hàng trong nhóm (`EDCRefreshGroupOB`)**:
-  - Nạp đầy đủ `InputProducts()` khi refresh VL06O thay vì chỉ lọc theo danh sách thiếu hụt, tránh xóa nhầm cache các mã đã có trên sheet `VL06O_DATA`.
+## Key Improvements in RC47
+- **Cam kết & Kích hoạt Nút 2 Tức thì (`Atomic Commit & mChecked = True`)**:
+  - Khi SAP tạo DO cho một phần danh sách mặt hàng (ví dụ 3/4 mã), các mặt hàng thành công được commit và ghi nhận biên nhận ngay lập tức.
+  - Thiết lập `mChecked = True` tức thì, bảo đảm người dùng bấm Nút 2 (`OB_Execute`) là chạy chia lô và lưu ngay mà không bao giờ bị báo "chưa có kế hoạch"!
+- **Bảo tồn Tuyệt đối Phân bổ các Mặt hàng đã có OB (`EDCPlanOne`)**:
+  - Khi một mã đã có DO với một phần số lượng (`capacity > 0`), hệ thống không ném lỗi `OB_ALREADY_CREATED_WAIT`, cho phép phân bổ trọn vẹn số lượng đó và ghi nhận vào kế hoạch Nút 2.
+- **Cách ly Hoàn toàn `mEDCWaitByMat` khỏi `freshBlocked` (`OB_Execute`)**:
+  - Gỡ bỏ việc gộp danh sách chờ tạo VL10D vào `freshBlocked`, ngăn chặn tình trạng các mã hợp lệ bị loại khỏi nhóm thực thi của Delivery Order.
+- **Bất biến Bảo vệ Hàng trên Delivery Order (`RemoveUnplannedItems`)**:
+  - Áp dụng nguyên tắc bất khả xâm phạm: Mọi dòng hàng trên DO có mã vật tư nằm trong danh mục `InputProducts()` tuyệt đối không bị xóa! Chấm dứt triệt để lỗi xóa nhầm các mã khác trên DO.
+- **Nâng cấp Cơ chế Xóa OB 3001 & Bắt lỗi Chặt chẽ (`SAPX_DeleteDraftOB`)**:
+  - Quét tìm lệnh Delete từ menu `Outbound Delivery` và OKCode `DELE`.
+  - Bắt buộc kiểm tra `sType <> "E"`, không bao giờ ngộ nhận xóa thành công khi SAP trả về lỗi, và loại bỏ hoàn toàn việc gọi xóa lặp lại trong khối lỗi.
+- **Xử lý An toàn Mảng Kế hoạch (`EDCEnsureGroupInSnapshot`)**:
+  - Kiểm tra `IsArray(planned)` loại bỏ lỗi `Type mismatch (13)`, tự động tách các mã có số lượng bằng 0 khỏi nhóm commit mà không làm gián đoạn các mã đã tạo thành công.
 
 ---
 
@@ -26,22 +29,23 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC46 (11/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC47 (11/10/2026)
 
-### 📦 Các tệp đính kèm RC46
+### 📦 Các tệp đính kèm RC47
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC46_HANDOFF.zip`** | 763,579 bytes | `AA012032530A6DE17D10AAA5A4C2DA8BD4A1F4798B678E3BFAC577F31A39CDAC` | **Gói bàn giao đầy đủ RC46 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC46.xlsm`** | 788,278 bytes | `D3121B65845EBDFDA4AEF1DA84C9BB7B92D7E4E496D8A18918B98FD7C2F5D5A7` | Tệp Excel Macro phát hành RC46 (Đã dọn dẹp & Compile) |
-| **`VBA_RC45_TO_RC46.diff`** | 7,817 bytes | `5A62FB3F30774CF786C6C07605FBA3966D53C5FBD34FEC47F5A24308D47A715C` | Chi tiết bản vá mã nguồn VBA từ RC45 lên RC46 |
-| **`CHANGELOG_RC46.md`** | 4,571 bytes | `A4301DF2390FD6445F9E66A4ADF7DC91D48262232E8C85049CA7C3DFA206CB2C` | Nhật ký thay đổi và giải pháp kỹ thuật RC46 |
+| **`RC47_HANDOFF.zip`** | 765,842 bytes | `A9F845EC80F4DB7D0C03B78E9E5060964A3559E90A0838BDE2EAD022D002ACA8` | **Gói bàn giao đầy đủ RC47 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC47.xlsm`** | 792,283 bytes | `B90CA4209A13806027C2234D32608E2F2C583F76074979BC048C3C450C3604EC` | Tệp Excel Macro phát hành RC47 (Đã dọn dẹp & Compile) |
+| **`VBA_RC46_TO_RC47.diff`** | 10,812 bytes | `7DB5C925A1AE7C7E13FD0DCE75CBA6EC9E3AE80164A496033D352F942475143F` | Chi tiết bản vá mã nguồn VBA từ RC46 lên RC47 |
+| **`CHANGELOG_RC47.md`** | 6,854 bytes | `2C240A2F3E75A9C0CEE83D0CE8C18C8B72D71BE20129B854BA6E56CEFBD58804` | Nhật ký thay đổi và giải pháp kỹ thuật RC47 |
 
-### 🚀 Điểm cải tiến cốt lõi trên RC46:
-1. **[Lượt nào ra lượt đó - Bảo tồn Candidate OB có sẵn]:** Không bị ngộ nhận, block chùm hay xóa nhầm ứng viên OB có sẵn khi có một hoặc vài mã còn thiếu due hoặc chưa tạo được trên VL10D.
-2. **[Tự can và tự tạo lại trong cùng phiên]:** Tự động xóa draft OB 3001 chiếm giữ tồn tại 3093 và **lập tức gọi tạo lại ngay trên VL10D**, sinh đủ DO và phân bổ trọn vẹn mà không cần thao tác thủ công.
-3. **[Vá lỗi xóa Draft OB bằng LOES]:** Loại bỏ hoàn toàn lỗi `The virtual key is not enabled` trên VL02N.
-4. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
+### 🚀 Điểm cải tiến cốt lõi trên RC47:
+1. **[Lần 1 có kế hoạch $ightarrow$ Bấm Nút 2 chạy ngay]:** Cam kết từng phần và đặt `mChecked = True`, người dùng bấm Nút 2 là thực thi mượt mà.
+2. **[Không xóa nhầm mã trên DO]:** Bảo vệ 100% các dòng hàng thuộc `InputProducts()` trong `RemoveUnplannedItems`, điền đủ SLoc/Batch cho tất cả các mã trên DO.
+3. **[Không đóng băng mã đã có OB]:** `EDCPlanOne` và `freshBlocked` bảo tồn trọn vẹn số lượng OB đã tạo để phân bổ ngay.
+4. **[Chuẩn hóa xóa OB 3001]:** Menu delete + OKCode `DELE`, chặn đứng lỗi lặp và kiểm tra nghiêm ngặt kết quả.
+5. **[Nghiệm thu & VBE Debug Compile PASS 100%]:**  
    - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
    - Gắn macro nút bấm chuẩn xác (`OB_Check` và `OB_Execute`).
 
@@ -49,17 +53,14 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ## 📜 Lịch sử bản phát hành trước đó
 
+### OB Tool V1 RC46 (11/10/2026)
+* **`RC46_HANDOFF.zip`**: SHA-256 `AA012032530A6DE17D10AAA5A4C2DA8BD4A1F4798B678E3BFAC577F31A39CDAC`
+* **`261010_OB_TOOL_V1_RC46.xlsm`**: SHA-256 `D3121B65845EBDFDA4AEF1DA84C9BB7B92D7E4E496D8A18918B98FD7C2F5D5A7`
+
 ### OB Tool V1 RC45 (11/10/2026)
 * **`RC45_HANDOFF.zip`**: SHA-256 `06CBFF1A5F26AAA33A8B89893C0C7895FE63BC690BDA7857614AF68B5589FAF8`
 * **`261010_OB_TOOL_V1_RC45.xlsm`**: SHA-256 `FB6EBCC36DC181408E0DB6488B79C44E0CB69F5157EC749AFB99A1AB64CC2C8A`
-* Chấp nhận từng phần khi tạo DO trên VL10D, theo dõi lượng thiếu hụt do 3001 chiếm giữ tồn, quét xóa thông minh OB nháp 3001.
 
 ### OB Tool V1 RC44 (11/10/2026)
 * **`RC44_HANDOFF.zip`**: SHA-256 `B38CE54348DDF3D469767E10AB8FD84E440BDC8755FDBF420280614445803C38`
 * **`261010_OB_TOOL_V1_RC44.xlsm`**: SHA-256 `FF3873E87F37F05C5D4952EF8AEE22D4B11BE73F4992F200A463F9DAF063AE12`
-* Mở khóa bộ lọc nhiều vật tư trên VL10D, bảo toàn số lượng Due trên Classic View, và khớp trọn vẹn lô nguyên theo WholeBatchGate & FIFO.
-
-### OB Tool V1 RC43 (10/10/2026)
-* **`RC43_HANDOFF.zip`**: SHA-256 `FDCF2FFE3354D6F3037D8415C83D5FB294BC0743928F2C417B11DEFBC6A595CC`
-* **`261010_OB_TOOL_V1_RC43.xlsm`**: SHA-256 `A406F9265328781F6BBDB2F63F7158666257976D9333ECFBD6CC4445F2FA4F6F`
-* Trực tiếp xác thực OB từ VL06O, tái sử dụng màn hình Due VL10D chạy 1 lần duy nhất, thông báo phản hồi thành công trên Nút 1.
