@@ -1,0 +1,284 @@
+--- ModuleMain.bas_RC47
++++ ModuleMain.bas_RC48
+@@ -13,6 +13,10 @@
+ Public RunID As String
+ 
+ Private mRunning As Boolean
++Private mSavedCalculation As Long
++Private mSavedEnableEvents As Boolean
++Private mSavedScreenUpdating As Boolean
++Private mSettingsSaved As Boolean
+ 
+ Private mSignature As String
+ 
+@@ -693,6 +697,21 @@
+ 
+ If mRunning Then Exit Function
+ 
++If Not mSettingsSaved Then
++ On Error Resume Next
++ mSavedCalculation = CLng(Application.Calculation)
++ mSavedEnableEvents = CBool(Application.EnableEvents)
++ mSavedScreenUpdating = CBool(Application.ScreenUpdating)
++ mSettingsSaved = True
++ On Error GoTo 0
++End If
++
++On Error Resume Next
++Application.ScreenUpdating = False
++Application.EnableEvents = False
++Application.Calculation = -4135 ' xlCalculationManual
++On Error GoTo 0
++
+ mRunning = True
+ 
+ If Not keepPlan Then mChecked = False
+@@ -711,11 +730,15 @@
+ 
+ On Error Resume Next
+ 
+-Application.ScreenUpdating = True
+-
+-Application.EnableEvents = True
+-
+-Application.Calculation = xlCalculationAutomatic
++If mSettingsSaved Then
++ Application.Calculation = mSavedCalculation
++ Application.EnableEvents = mSavedEnableEvents
++ Application.ScreenUpdating = mSavedScreenUpdating
++ mSettingsSaved = False
++Else
++ Application.ScreenUpdating = True
++ Application.EnableEvents = True
++End If
+ 
+ Application.Cursor = xlDefault
+ 
+@@ -2540,8 +2563,6 @@
+ 
+   ui.Cells(r, 13).Value2 = status: ui.Cells(r, 14).Value2 = IIf(status = "DONE", "SAVED " & CStr(first(1)), message)
+ 
+-  ui.Cells(r, 6).Resize(1, 9).rows.AutoFit
+-
+  End If
+ 
+ Next r
+@@ -3336,7 +3357,7 @@
+ Public Function EDCNormalizeSTOs(ByVal value As String) As String
+ Dim tokens As Variant, token As Variant, stoValue As String, uniqueSTOs As Object, output As String
+ Set uniqueSTOs = CreateObject("Scripting.Dictionary")
+-value = Replace(Replace(Replace(Replace(value, vbCr, ";"), vbLf, ";"), ",", ";"), vbTab, ";")
++value = Replace(Replace(Replace(Replace(Replace(value, vbCrLf, ";"), vbCr, ";"), vbLf, ";"), ",", ";"), vbTab, ";")
+ tokens = Split(value, ";")
+ For Each token In tokens
+  stoValue = Trim$(CStr(token))
+@@ -3349,7 +3370,7 @@
+   End If
+  End If
+ Next token
+-If uniqueSTOs.count > 2 Then Err.Raise vbObjectError + 4260, , "STO R31: toi da 2 STO cho mot lan kiem tra."
++If uniqueSTOs.count > 4 Then Err.Raise vbObjectError + 4260, , "STO R31: toi da 4 STO cho mot lan kiem tra."
+ EDCNormalizeSTOs = output
+ End Function
+ 
+@@ -3397,10 +3418,11 @@
+ End Sub
+ 
+ Private Function EDCCheckOne(ByVal mat As String) As String
+-Dim due As Collection, a As Variant, need As Double, largest As Double, count As Long, detail As String
++Dim due As Collection, a As Variant, need As Double, largest As Double, count As Long, detail As String, scope As String
+ On Error GoTo Failed
+ need = EDCDirectQty(mat)
+-Set due = ModuleSAP.EDC4007_FindDue(mat, EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2)))
++scope = EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2))
++Set due = EDCCachedDue(mat, scope)
+ For Each a In due
+  largest = Application.Max(largest, CDbl(a(4)))
+  If CDbl(a(4)) > 0 Then count = count + 1
+@@ -3651,10 +3673,15 @@
+ End Sub
+ 
+ Private Sub EDCBuildCreatePlans(ByVal products As Object)
+-Dim mat As Variant
++Dim mat As Variant, scope As String
+ Set mEDCCreatePlan = CreateObject("Scripting.Dictionary")
+ Set mEDCDueCache = CreateObject("Scripting.Dictionary")
+ If CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2) <> "4007" Then Exit Sub
++scope = EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2))
++If products.count > 0 Then
++ Application.StatusBar = "4007 BULK READ VL10D (" & products.count & " mats; STO scope=" & scope & ")"
++ Call EDCCachedDue(CStr(products.keys()(0)), scope)
++End If
+ For Each mat In products.keys
+  Application.StatusBar = "4007 LAP KE HOACH: " & CStr(mat)
+  EDCPlanOne CStr(mat)
+@@ -4294,16 +4321,13 @@
+ 
+ Private Function EDCCachedDue(ByVal mat As String, ByVal scope As String) As Collection
+ Dim byMat As Object, products As Object, due As Collection, subset As Collection, key As Variant, candidate As Variant
+-If scope = "" Or InStr(scope, ";") > 0 Then
+- Set EDCCachedDue = ModuleSAP.EDC4007_FindDue(mat, scope)
+- Exit Function
+-End If
++scope = EDCNormalizeSTOs(scope)
+ If Not mEDCDueCache.exists(scope) Then
+  Set products = InputProducts(): Set byMat = CreateObject("Scripting.Dictionary")
+  For Each key In products.keys
+   Set subset = New Collection: byMat.Add CStr(key), subset
+  Next key
+- Set due = ModuleSAP.EDC4007_FindDueGroup(scope, products)
++ Set due = ModuleSAP.EDC4007_FindDueMultiSTO(scope, products)
+  For Each candidate In due
+   If byMat.exists(CStr(candidate(2))) Then byMat(CStr(candidate(2))).Add candidate
+  Next candidate
+@@ -4311,7 +4335,11 @@
+  ModuleLog.WriteLog "VL10D_DUE_GROUP_READ", "STO=" & scope & "; Materials=" & products.count & "; read once for check planning"
+ End If
+ Set byMat = mEDCDueCache(scope)
+-Set EDCCachedDue = byMat(mat)
++If byMat.exists(mat) Then
++ Set EDCCachedDue = byMat(mat)
++Else
++ Set EDCCachedDue = New Collection
++End If
+ End Function
+ 
+ 
+--- ModuleSAP.bas_RC47
++++ ModuleSAP.bas_RC48
+@@ -4536,6 +4536,60 @@
+ EDC4007_CreateVL10D = EDCPressCreate()
+ End Function
+ 
++Private Sub EDCSetGroupSTOFilter(ByVal ses As Object, ByVal stoScope As String)
++Dim tokens As Variant, button As Object, ws As Worksheet, saved As Variant, i As Long, values() As Variant, ctl As Object
++tokens = Split(stoScope, ";")
++Set button = SAPX_FindByTokens(ses, "%_ST_EBELN_%_APP_%-VALU_PUSH", False)
++If stoScope = "" Then
++ If Not button Is Nothing Then
++  button.Press
++  If SAPX_WaitIdle(ses, 10) Then
++   ses.findById("wnd[1]/tbar[0]/btn[16]").Press
++   ses.findById("wnd[1]/tbar[0]/btn[8]").Press
++  End If
++ End If
++ EDC_SetField ses, "ST_EBELN-LOW", ""
++ Set ctl = SAPX_FindByTokens(ses, "ST_EBELN-HIGH", True): If Not ctl Is Nothing Then SAPX_SetValue ctl, ""
++ Exit Sub
++End If
++If UBound(tokens) = 0 Then
++ If Not button Is Nothing Then
++  button.Press
++  If SAPX_WaitIdle(ses, 10) Then
++   ses.findById("wnd[1]/tbar[0]/btn[16]").Press
++   ses.findById("wnd[1]/tbar[0]/btn[8]").Press
++  End If
++ End If
++ EDC_SetField ses, "ST_EBELN-LOW", CStr(tokens(0))
++ Set ctl = SAPX_FindByTokens(ses, "ST_EBELN-HIGH", True): If Not ctl Is Nothing Then SAPX_SetValue ctl, ""
++ ModuleLog.WriteLog "VL10D_STO_FILTER", "SINGLE=" & tokens(0)
++ Exit Sub
++End If
++
++' Multiple STOs (2 to 4 STOs)
++If button Is Nothing Then Err.Raise vbObjectError + 4261, , "VL10D STO multiple-selection button missing."
++button.Press
++If Not SAPX_WaitIdle(ses, 10) Then Err.Raise vbObjectError + 4261, , "VL10D STO popup timeout."
++ses.findById("wnd[1]/tbar[0]/btn[16]").Press
++Set ws = ThisWorkbook.Worksheets("SEARCH_LIST")
++saved = ws.Range("B1:B10").Value2
++ReDim values(1 To UBound(tokens) + 1, 1 To 1)
++For i = 0 To UBound(tokens): values(i + 1, 1) = CStr(tokens(i)): Next i
++ws.Range("B2").Resize(UBound(tokens) + 1, 1).Value2 = values
++ws.Range("B2").Resize(UBound(tokens) + 1, 1).Copy
++Set ctl = SAPX_FindById(ses, "wnd[1]/tbar[0]/btn[24]")
++If ctl Is Nothing Then Err.Raise vbObjectError + 4261, , "Thieu nut Paste STO"
++ctl.Press
++If Not SAPX_WaitIdle(ses, 10) Then Err.Raise vbObjectError + 4261, , "VL10D STO paste timeout."
++Set ctl = SAPX_FindById(ses, "wnd[1]/tbar[0]/btn[8]")
++If ctl Is Nothing Then Err.Raise vbObjectError + 4261, , "Thieu nut OK STO"
++ctl.Press
++If Not SAPX_WaitIdle(ses, 15) Then Err.Raise vbObjectError + 4261, , "VL10D STO selection apply timeout."
++ws.Range("B1:B10").Value2 = saved: Application.CutCopyMode = False
++Set ctl = SAPX_FindByTokens(ses, "ST_EBELN-HIGH", True): If Not ctl Is Nothing Then SAPX_SetValue ctl, ""
++ModuleLog.WriteLog "VL10D_STO_FILTER", "MULTI=" & (UBound(tokens) + 1) & "; " & stoScope
++End Sub
++
+ Private Sub EDC_OpenDue(ByVal mat As String, ByVal sto As String)
+ Dim ses As Object, ctl As Object, tabControl As Object
+ Set mEDCSession = SAPX_GetSessionForTcode("VL10D"): Set ses = mEDCSession
+@@ -4549,12 +4603,7 @@
+ Set tabControl = SAPX_FindById(ses, "wnd[0]/usr/tabsTABSTRIP_ORDER_CRITERIA/tabpS0S_TAB5")
+ If tabControl Is Nothing Then Err.Raise vbObjectError + 4261, , "Thieu tab STO VL10D."
+ tabControl.Select
+-EDC_SetField ses, "ST_EBELN-LOW", sto
+-Set ctl = SAPX_FindByTokens(ses, "ST_EBELN-HIGH", True)
+-If Not ctl Is Nothing Then
+- SAPX_SetValue ctl, ""
+- If SAPX_ControlValue(ctl) <> "" Then Err.Raise vbObjectError + 4261, , "VL10D ST_EBELN-HIGH not cleared."
+-End If
++EDCSetGroupSTOFilter ses, sto
+ Set tabControl = SAPX_FindById(ses, "wnd[0]/usr/tabsTABSTRIP_ORDER_CRITERIA/tabpS0S_TAB3")
+ If tabControl Is Nothing Then Err.Raise vbObjectError + 4261, , "Thieu tab Material/Plant VL10D."
+ tabControl.Select
+@@ -4620,7 +4669,7 @@
+  grid.selectedRows = ""
+  For r = 0 To grid.rowCount - 1
+   SAPX_EnsureGridRowVisible grid, r
+-  If EDCMaterialInScope(SAPX_GridText(grid, r, cMat), mat) And SAPX_GridText(grid, r, cPlant) = "4007" And (sto = "" Or SAPX_GridText(grid, r, cSTO) = sto) Then
++  If EDCMaterialInScope(SAPX_GridText(grid, r, cMat), mat) And SAPX_GridText(grid, r, cPlant) = "4007" And (sto = "" Or ModuleMain.EDCScopeIncludes(sto, SAPX_GridText(grid, r, cSTO))) Then
+    If SAPX_GridText(grid, r, cUom) <> ModuleHelper.ToolConfig("EXPECTED_UOM", "UN") Then Err.Raise vbObjectError + 4261, , "VL10D UoM khong khop."
+    source = ""
+    If cSource <> "" Then source = SAPX_GridText(grid, r, cSource)
+@@ -4804,7 +4853,7 @@
+     If Trim$(EDC_ClassicValue(rowCells, xMat)) = "" And ModuleHelper.CleanDouble(ctl.text) > 0 Then Err.Raise vbObjectError + 4261, , "VL10D Material blank in classic Due; no Create; verify layout."
+      If EDCMaterialInScope(EDC_ClassicValue(rowCells, xMat), mat) And EDC_ClassicPlant(rowCells, xPlant, EDC_ClassicValue(rowCells, xMat)) = "4007" Then
+      If Len(actualSTO) <> 10 Or Not actualSTO Like "##########" Then Err.Raise vbObjectError + 4261, , "VL10D classic item missing parent STO."
+-     If sto = "" Or actualSTO = sto Then
++     If sto = "" Or ModuleMain.EDCScopeIncludes(sto, actualSTO) Then
+       itemText = EDC_ClassicValue(rowCells, xItem)
+       If val(itemText) <= 0 Or val(itemText) >= 1000000 Then Err.Raise vbObjectError + 4261, , "VL10D classic invalid STO Item."
+       If UCase$(EDC_ClassicValue(rowCells, xUom)) <> UCase$(ModuleHelper.ToolConfig("EXPECTED_UOM", "UN")) Then Err.Raise vbObjectError + 4261, , "VL10D classic UoM khong khop."
+@@ -4917,21 +4966,9 @@
+ End Sub
+ 
+ Public Function EDC4007_FindDue(ByVal mat As String, ByVal sto As String) As Collection
+-Dim scope As String, token As Variant, partial As Collection, combined As Collection, candidate As Variant
++Dim scope As String
+ scope = ModuleMain.EDCNormalizeSTOs(sto)
+-Set combined = New Collection
+-If scope = "" Then
+- Set EDC4007_FindDue = EDC4007_FindDueSingle(mat, "")
+- Exit Function
+-End If
+-For Each token In Split(scope, ";")
+- Set partial = EDC4007_FindDueSingle(mat, CStr(token))
+- For Each candidate In partial
+-  If CStr(candidate(0)) <> CStr(token) Or CStr(candidate(2)) <> mat Or CStr(candidate(3)) <> "4007" Then Err.Raise vbObjectError + 4261, , "VL10D scope readback mismatch."
+-  combined.Add candidate
+- Next candidate
+-Next token
+-Set EDC4007_FindDue = combined
++Set EDC4007_FindDue = EDC4007_FindDueSingle(mat, scope)
+ End Function
+ 
+ Public Function EDC4007_CurrentDueQty() As Double
+@@ -5107,11 +5144,17 @@
+ 
+ 
+ Public Function EDC4007_FindDueGroup(ByVal sto As String, ByVal products As Object) As Collection
+-If sto = "" Or InStr(sto, ";") > 0 Then Err.Raise vbObjectError + 4261, , "Group requires one exact STO."
+ Set mEDCGroupTargets = products
+ Set mEDCLastDue = EDC4007_FindDueSingle("", sto)
+ mEDCLastDueAt = Timer
+ Set EDC4007_FindDueGroup = mEDCLastDue
++End Function
++
++Public Function EDC4007_FindDueMultiSTO(ByVal stoScope As String, ByVal products As Object) As Collection
++Set mEDCGroupTargets = products
++Set mEDCLastDue = EDC4007_FindDueSingle("", stoScope)
++mEDCLastDueAt = Timer
++Set EDC4007_FindDueMultiSTO = mEDCLastDue
+ End Function
+ 
+ 
