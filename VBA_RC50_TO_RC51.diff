@@ -1,0 +1,68 @@
+--- RC50/ModuleMain.bas
++++ RC51/ModuleMain.bas
+@@ -3664,30 +3664,31 @@
+ End If
+ 
+ ' P3 Dominant STO Clustering: Automatic selection without InputBox or MsgBox!
+-Dim cand As Variant, matchedCand As Variant
+-Set matchedCand = Nothing
++Dim cand As Variant, hasMatched As Boolean
++hasMatched = False
+ If mEDCDominantSTO <> "" Then
+  For Each cand In eligible
+   If CStr(cand(0)) = mEDCDominantSTO Then
+-   If matchedCand Is Nothing Then
+-    matchedCand = cand
+-   ElseIf CDbl(cand(4)) > CDbl(matchedCand(4)) Then
+-    matchedCand = cand
++   If Not hasMatched Then
++    chosen = cand
++    hasMatched = True
++   ElseIf CDbl(cand(4)) > CDbl(chosen(4)) Then
++    chosen = cand
+    End If
+   End If
+  Next cand
+ End If
+ 
+-If matchedCand Is Nothing Then
++If Not hasMatched Then
+  For Each cand In eligible
+-  If matchedCand Is Nothing Then
+-   matchedCand = cand
+-  ElseIf CDbl(cand(4)) > CDbl(matchedCand(4)) Then
+-   matchedCand = cand
++  If Not hasMatched Then
++   chosen = cand
++   hasMatched = True
++  ElseIf CDbl(cand(4)) > CDbl(chosen(4)) Then
++   chosen = cand
+   End If
+  Next cand
+ End If
+-chosen = matchedCand
+ ModuleLog.WriteLog "VL10D_AUTO_STO_CHOSEN", "Material=" & mat & "; STO=" & chosen(0) & "/" & chosen(1) & "; Due=" & chosen(4) & "; DominantSTO=" & mEDCDominantSTO
+ mEDCSTOByMat(mat) = CStr(chosen(0))
+ createQty = Application.Min(missing, CDbl(chosen(4)))
+@@ -4858,3 +4859,4 @@
+ End Sub
+ 
+ 
++
+
+--- RC50/ModuleSAP.bas
++++ RC51/ModuleSAP.bas
+@@ -5930,3 +5930,4 @@
+ End Function
+ 
+ 
++
+
+--- RC50/ModuleHelper.bas
++++ RC51/ModuleHelper.bas
+@@ -560,3 +560,4 @@
+     End If
+ End Function
+ 
++
+

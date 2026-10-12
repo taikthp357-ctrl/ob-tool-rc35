@@ -1,34 +1,20 @@
-# OB TOOL V1 RC50
+# OB TOOL V1 RC51
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC50.xlsm`  
-Canonical SHA256: `545E9C5CAB9C3F0BACC34D53DFF840B3B8C3618853DE72E5760A87D29A7ECAC4`  
-Handoff Archive: `RC50_HANDOFF.zip`  
-Archive SHA256: `7CB1088B32B6ADEC280737F49DCC1CB8130FA997F376AD8D6810E4E860F6BC9E`
+Canonical XLSM: `261010_OB_TOOL_V1_RC51.xlsm`  
+Canonical SHA256: `85966347A480D4AF990881B481A6F860C3950DDEFF6991653BBA0A1615CFCBD9`  
+Handoff Archive: `RC51_HANDOFF.zip`  
+Archive SHA256: `DB86E5724A2153D43D50606FB0E456C3D9F101F6DBABFCCEC917DBB7AC9F9B50`
 
-## Key Improvements in RC50
-- **P0 — Sửa Xác minh Receipt và Dữ liệu Thiếu Trước Khi Cho Phép Cancel**:
-  - Lưu create intent bất biến (`VL10D_INTENT_<mat>`) gồm Request ID, Material, Qty định tạo, STO/Item và Timestamp.
-  - Xóa sạch pending key và receipt cũ trước mỗi đợt tạo nhóm mới; loại trừ hoàn toàn việc tái sử dụng receipt sai scope.
-  - Bỏ `On Error Resume Next` bao quanh verify/commit; thay bằng bắt lỗi có cấu trúc `On Error GoTo Failed`.
-  - Loại bỏ hoàn toàn lỗi thay thế số lượng kế hoạch (`obQty <= 0 Then obQty = planned(3)`).
-  - Tự động lọc các OB baseline đã tồn tại từ trước trong `EDCDiscoverReceiptsFromVL06O`.
-  - Phân loại trạng thái rõ ràng từng mã: `VERIFIED_FULL`, `VERIFIED_PARTIAL`, `VERIFIED_ZERO`, `UNKNOWN_READBACK`.
-  - Commit riêng phần đã xác minh (`verifiedPlans.Count > 0`); loại bỏ triệt để lỗi báo `COMMITTED Materials=0`.
-- **P1 — Đưa Recovery 3001 Vào Đúng Các Đường Quyết định**:
-  - Kích hoạt giải phóng draft 3001 chỉ khi Due hợp lệ và có thâm hụt thực tế đã được xác minh (`deficits.Count > 0`).
-  - Khi Due = 0: Chẩn đoán STO mà không tự hủy bừa bãi draft 3001 (`WAIT_STO_DUE_4007`).
-  - Thẩm định live ứng viên draft 3001 (đúng Ship-to 3001, đúng Material, Batch/SLoc trống, chưa GI) ngay trước khi xóa.
-  - Chờ 2 giây đồng bộ SAP ATP sau khi xóa draft 3001 (`WAIT_RELEASE_SYNC`) trước khi tự động thử lại (`AUTO_RETRY_VL10D`).
-- **P2 — Sửa Đọc Classic UoM và Xử lý Triệt để Đơn vị Khác EA**:
-  - Bắt buộc log UoM chi tiết: `raw`, `normalized`, `expected`, `material`, `STO/item`, `page`, `row`, tọa độ `x` và `control ID`.
-  - Phân biệt rõ `UOM_EMPTY` (ô trống) và `UOM_MISMATCH` (sai lệch đơn vị thực sự).
-  - Hàm `NormalizeUoM` loại bỏ ký tự trắng ẩn (`Chr(160)`, `Chr(9)`, `Chr(10)`, `Chr(13)`).
-  - Hỗ trợ nhóm đơn vị đếm tương đương chuẩn SAP: `EA`, `UN`, `PC`, `ST`, `PCE` qua hàm `IsCompatibleUoM`.
-  - Hỗ trợ định dạng số thập phân trong VL02N cho đơn vị khác EA qua hàm `FormatSAPQty`.
-- **P3 — Dominant STO Clustering & Loại bỏ Hoàn toàn Popup**:
-  - Loại bỏ hoàn toàn `Application.InputBox` và `MsgBox` trong `EDCPlanOne`.
-  - Tự động tính toán và chọn STO chủ đạo (Dominant STO) gom được nhiều vật tư nhất cùng nhau trong cùng đợt chạy để tối đa hóa việc gộp chung vào 1 Outbound Delivery trên VL10D.
-  - Cơ chế tie-breaker: Ưu tiên theo thứ tự STO tại R31 và Due Qty lớn hơn.
+## Key Improvements in RC51
+- **Vá lỗi Runtime Error 424 "Object required" trong Dominant STO Clustering (`ModuleMain.bas - EDCPlanOne`)**:
+  - Khắc phục triệt để lỗi ngoại lệ khi kiểm tra `matchedCand Is Nothing` trên biến Mảng (Array).
+  - Thay thế toàn diện bằng biến cờ Boolean `hasMatched As Boolean` trong thuật toán gom nhóm STO chủ đạo.
+  - Đảm bảo toàn bộ các vật tư trong STO chủ đạo được lập kế hoạch tạo OB thành công và gửi lệnh lên VL10D, không còn tình trạng kế hoạch 0 item.
+- **Toàn bộ cải tiến vững chắc từ RC50 được bảo toàn 100%**:
+  - **P0**: Lưu create intent bất biến, lọc bỏ baseline OBs, loại bỏ lỗi gán đè Qty kế hoạch (`obQty <= 0`), cam kết chỉ commit các kế hoạch đã xác minh (`verifiedPlans.Count > 0`).
+  - **P1**: Giải phóng draft 3001 dựa trên thâm hụt đã xác minh, chờ đồng bộ ATP SAP 2 giây trước khi tự động thử lại tạo VL10D.
+  - **P2**: Nhật ký UoM chi tiết toàn diện (`raw`, `normalized`, `expected`, `row`, `x`, `control ID`), hàm `NormalizeUoM` dọn sạch khoảng trắng ẩn, nhóm đơn vị đếm tương đương `EA/UN/PC/ST/PCE`, hỗ trợ định dạng số thập phân trong VL02N (`FormatSAPQty`).
+  - **P3**: Tự động gom cụm STO chủ đạo (Dominant STO Clustering), loại bỏ hoàn toàn các hộp thoại `Application.InputBox` và `MsgBox`.
 - **Biên dịch & Bảo toàn Hệ thống**:
   - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
   - Gắn macro nút bấm chuẩn xác (`INPUT!OBV1__0` -> `OB_Check`, `INPUT!OBV1__1` -> `OB_Execute`).
@@ -42,20 +28,24 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC50 (13/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC51 (13/10/2026)
 
-### 📦 Các tệp đính kèm RC50
+### 📦 Các tệp đính kèm RC51
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC50_HANDOFF.zip`** | 707,717 bytes | `7CB1088B32B6ADEC280737F49DCC1CB8130FA997F376AD8D6810E4E860F6BC9E` | **Gói bàn giao đầy đủ RC50 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC50.xlsm`** | 753,624 bytes | `545E9C5CAB9C3F0BACC34D53DFF840B3B8C3618853DE72E5760A87D29A7ECAC4` | Tệp Excel Macro phát hành RC50 (Đã dọn dẹp & Compile) |
-| **`VBA_RC49_TO_RC50.diff`** | 26,795 bytes | `5832329BBF37C547A1A34798F74042F18A429AEA14A42A2A9AF081807D171307` | Chi tiết bản vá mã nguồn VBA từ RC49 lên RC50 |
-| **`CHANGELOG_RC49_TO_RC50.md`** | 6,542 bytes | `17EE73D5A9E56996828D4DB72847970539894D38EFCDCC36678C6176282CE3D7` | Nhật ký thay đổi và giải pháp kỹ thuật RC50 |
+| **`RC51_HANDOFF.zip`** | 694,251 bytes | `DB86E5724A2153D43D50606FB0E456C3D9F101F6DBABFCCEC917DBB7AC9F9B50` | **Gói bàn giao đầy đủ RC51 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC51.xlsm`** | 748,030 bytes | `85966347A480D4AF990881B481A6F860C3950DDEFF6991653BBA0A1615CFCBD9` | Tệp Excel Macro phát hành RC51 (Đã vá 424 & Compile) |
+| **`VBA_RC50_TO_RC51.diff`** | 1,667 bytes | `D9B2B4F4B60E20E59868C40AA11B30494D43DB2509974232B2D48DA81B274AB3` | Chi tiết bản vá mã nguồn VBA từ RC50 lên RC51 |
+| **`CHANGELOG_RC50_TO_RC51.md`** | 3,826 bytes | `BA8A15C32B4319D45E8B2FC0BFE1B0413A22242936378091505235F3BBF5332D` | Nhật ký thay đổi và giải pháp kỹ thuật RC51 |
 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC50 (13/10/2026)
+* **`RC50_HANDOFF.zip`**: SHA-256 `7CB1088B32B6ADEC280737F49DCC1CB8130FA997F376AD8D6810E4E860F6BC9E`
+* **`261010_OB_TOOL_V1_RC50.xlsm`**: SHA-256 `545E9C5CAB9C3F0BACC34D53DFF840B3B8C3618853DE72E5760A87D29A7ECAC4`
 
 ### OB Tool V1 RC49 (13/10/2026)
 * **`RC49_HANDOFF.zip`**: SHA-256 `BCFFCF5F3D1865EAC3FA770BC78DEBF3B8083884358896EEFEA3AC3DF38E90BC`
