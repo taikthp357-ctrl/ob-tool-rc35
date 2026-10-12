@@ -1,27 +1,34 @@
-# OB TOOL V1 RC48
+# OB TOOL V1 RC49
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC48.xlsm`  
-Canonical SHA256: `AC5A70B941DB7D5E49E92ABBBAF033CC9CBE9608C7C40B13ADE82D5070F4AE3C`  
-Handoff Archive: `RC48_HANDOFF.zip`  
-Archive SHA256: `0C88DDD6DAEAFF234766D4A3DF4D976B319AFF5D545425417F6625D0D7D40AA7`
+Canonical XLSM: `261010_OB_TOOL_V1_RC49.xlsm`  
+Canonical SHA256: `A199AB73A70EEE04820C0B9F538ABE7518F39C5FED75569F064E661AA43381F3`  
+Handoff Archive: `RC49_HANDOFF.zip`  
+Archive SHA256: `D26D245F22606301B76DD60C4B39F0FC87235E7B1AB316660C5368D7650287CB`
 
-## Key Improvements in RC48
-- **Nâng giới hạn STO từ 2 lên tối đa 4 (Plant 4007 STO)**:
-  - Trong `ModuleMain.bas` (`EDCNormalizeSTOs`), hỗ trợ chuẩn hóa phân tách bằng `;`, phẩy, xuống dòng (`vbCrLf`), tab; nâng giới hạn lên tối đa 4 STO.
-  - Trên sheet `INPUT`, cập nhật nhãn ô `P31` thành `STO 4007 (tối đa 4)`.
-- **Gom mã đọc VL10D tối ưu cho nhiều STO (Bulk Multi-STO Read)**:
-  - Trong `ModuleSAP.bas`, bổ sung `EDCSetGroupSTOFilter` kết hợp Multiple Selection `%_ST_EBELN_%_APP_%-VALU_PUSH` và `%_ST_MATNR_%_APP_%-VALU_PUSH`.
-  - Mở VL10D đúng 1 lần duy nhất cho toàn bộ danh sách mã và danh sách STO (hàm `EDC4007_FindDueMultiSTO`).
-  - Lưu toàn bộ kết quả Due vào bộ nhớ đệm RAM theo Material và STO (`EDCCachedDue`), loại bỏ 100% việc mở lặp lại VL10D từng mã × từng STO.
-  - Khi tạo OB, gom các mã theo STO đã chọn và kiểm tra đúng dòng trước Create.
-- **Quản lý Calculation Mode & Tối ưu hiệu năng Excel**:
-  - Gỡ bỏ triệt để thuộc tính `forceFullCalc="1"` trong `xl/workbook.xml` và đặt `wb.ForceFullCalculation = False`, triệt tiêu tình trạng đơ/lag các file Excel khác.
-  - Trong `ModuleMain.bas`, lưu trạng thái ban đầu của `Application.Calculation`, `EnableEvents`, `ScreenUpdating` tại `BeginRun` (chuyển sang Manual), khôi phục đúng trạng thái ban đầu khi kết thúc, không bao giờ đơn phương ép Automatic.
-  - Loại bỏ thao tác AutoFit lặp từng dòng trong `UpdateItemStatus`.
+## Key Improvements in RC49
+- **Bộ điều phối chuyên biệt Nhánh 2001 (Shop XMĐ) trên EWM Monitor (`/SCWM/MON`)**:
+  - Rẽ nhánh độc lập khi ô `INPUT!R5 = "2001"`, bảo toàn nguyên vẹn 100% logic của nhánh 3001 và 4007 khi `R5 <> "2001"`.
+- **Nút 1: Đọc & Lập kế hoạch EWM (`OB2001_Check`)**:
+  - Đọc danh sách mã gọi ưu tiên (UT) từ `INPUT!A6:C205`.
+  - Quét `VL06O` theo Ship-to = `2001`, Shipping Point = `3093` để thu thập các Outbound Delivery (OB) chứa mã UT; tự động phát hiện OB thiếu SLoc 3093.
+  - Mở `/SCWM/MON` (Warehouse 3093), truy vấn Node ODO (`N000000010`) qua Multiple Selection `S_ERP_H-LOW`, tải lưới Warehouse Tasks qua nút Toolbar `N000000096` (`MATNR`, `CHARG`, `VLPLA`, `VSOLM`, `NISTM`, `DOCNO`, `DOCNO_H`).
+  - Truy vấn Node Stock Overview (`N000000139`) với Owner `3093` để đọc tồn vật lý `QUAN`, tồn khả dụng `ABSQUAN`, tồn giữ `OUT_QUAN`.
+  - **Ma trận Thẩm định Nguyên Batch & FIFO Đa OB**:
+    * Mã ngoài kế hoạch (Non-UT) nằm chung trên OB: Lập kế hoạch `CONFIRM_0` (mã ngoại lệ `OVP2`).
+    * Mã UT đúng batch và đủ số lượng: Lập kế hoạch `KEEP`.
+    * Mã UT đa OB đủ batch (A=25 + B=25 = 50): Lập kế hoạch `KEEP_MULTI_OB` (giữ nguyên cả hai OB).
+    * Mã UT thiếu batch đơn lẻ: Lập kế hoạch `CANCEL_WT` (hủy task đơn lẻ).
+    * Mã UT vi phạm FIFO (gắp lô mới khi lô cũ còn tồn): Lập kế hoạch `CANCEL_WT` (hủy lô mới để gom lô cũ).
+  - Xuất bảng kế hoạch trực quan lên `INPUT (F:N)` và `BATCH_PLAN`.
+- **Nút 2: Thực thi theo Kế hoạch EWM (`OB2001_Execute`)**:
+  - Thực thi `CONFIRM_0` per `cfveo.vbs` (`METHODS` -> `@M00006`, `ODP1_CONF_FGR`, `DIF_ALL = true`, `NISTA = 0`, `EXCCODE = OVP2`, Save, Back, Refresh).
+  - Thực thi `CANCEL_WT` per `can.vbs` (`METHODS` -> `@M00008`, Refresh).
+  - Sửa số lượng ODO và tạo task theo batch mới per `candienmoi.vbs` (`OIP_CHANGE`, `QTY_UI`, VKey 25, tab `DEFDLV`, `DEFDLV-CHARG`, `OK_OI_DLV_CREATE_AND_SAVE`).
+  - Refresh và đối soát đọc lại kết quả xác minh.
 - **Biên dịch & Bảo toàn Hệ thống**:
   - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
-  - Gắn macro nút bấm chuẩn xác (`OB_Check` và `OB_Execute`).
-  - Bảo toàn trọn vẹn 4 Invariants nhánh 3001 Shop Body, WholeBatchGate và nguyên tắc FIFO.
+  - Gắn macro nút bấm chuẩn xác (`INPUT!OBV1__0` -> `OB_Check`, `INPUT!OBV1__1` -> `OB_Execute`).
+  - Khử bỏ triệt để `forceFullCalc="1"` trong `xl/workbook.xml`.
 
 ---
 
@@ -31,20 +38,24 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC48 (13/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC49 (13/10/2026)
 
-### 📦 Các tệp đính kèm RC48
+### 📦 Các tệp đính kèm RC49
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC48_HANDOFF.zip`** | 652,565 bytes | `0C88DDD6DAEAFF234766D4A3DF4D976B319AFF5D545425417F6625D0D7D40AA7` | **Gói bàn giao đầy đủ RC48 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC48.xlsm`** | 710,356 bytes | `AC5A70B941DB7D5E49E92ABBBAF033CC9CBE9608C7C40B13ADE82D5070F4AE3C` | Tệp Excel Macro phát hành RC48 (Đã dọn dẹp & Compile) |
-| **`VBA_RC47_TO_RC48.diff`** | 10,720 bytes | `06BBA607E42052ED2E4F036E30EF8FD0F50B021BD182A17A60C521F2DD7899B3` | Chi tiết bản vá mã nguồn VBA từ RC47 lên RC48 |
-| **`CHANGELOG_RC48.md`** | 5,502 bytes | `55EE70D2217BAE3F934C7250E109AA5EFF1864098DA1DB4C07BCF0D87FFAAD86` | Nhật ký thay đổi và giải pháp kỹ thuật RC48 |
+| **`RC49_HANDOFF.zip`** | 693,922 bytes | `D26D245F22606301B76DD60C4B39F0FC87235E7B1AB316660C5368D7650287CB` | **Gói bàn giao đầy đủ RC49 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC49.xlsm`** | 742,593 bytes | `A199AB73A70EEE04820C0B9F538ABE7518F39C5FED75569F064E661AA43381F3` | Tệp Excel Macro phát hành RC49 (Đã dọn dẹp & Compile) |
+| **`VBA_RC48_TO_RC49.diff`** | 30,450 bytes | `10A92864176CB06E5BA27E8B5C98A68DD2CE06719F32D2E8ADDC0488EA88294A` | Chi tiết bản vá mã nguồn VBA từ RC48 lên RC49 |
+| **`CHANGELOG_RC48_TO_RC49.md`** | 5,212 bytes | `62B801C61C5A6A21E4455FF33646E9F7C3E9C7CCEA31D6480FE195F6ECA4EF9D` | Nhật ký thay đổi và giải pháp kỹ thuật RC49 |
 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC48 (13/10/2026)
+* **`RC48_HANDOFF.zip`**: SHA-256 `0C88DDD6DAEAFF234766D4A3DF4D976B319AFF5D545425417F6625D0D7D40AA7`
+* **`261010_OB_TOOL_V1_RC48.xlsm`**: SHA-256 `AC5A70B941DB7D5E49E92ABBBAF033CC9CBE9608C7C40B13ADE82D5070F4AE3C`
 
 ### OB Tool V1 RC47 (11/10/2026)
 * **`RC47_HANDOFF.zip`**: SHA-256 `A9F845EC80F4DB7D0C03B78E9E5060964A3559E90A0838BDE2EAD022D002ACA8`
