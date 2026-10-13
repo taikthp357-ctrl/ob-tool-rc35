@@ -649,3 +649,277 @@ body {
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* --- Shift Filters & Visual Progress Chart --- */
+.shift-filter-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn-shift {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-shift:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+.btn-shift.active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.dashboard-visual-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+@media (max-width: 1024px) {
+  .dashboard-visual-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.chart-card {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.chart-svg-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+}
+.chart-legend {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+.legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.legend-dot-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* --- BBBG Sheet ĐẦU_VÀO & Split View --- */
+.bbbg-split-container {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 16px;
+  margin-top: 12px;
+}
+@media (max-width: 1280px) {
+  .bbbg-split-container {
+    grid-template-columns: 1fr;
+  }
+}
+.bbbg-grid-panel {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.bbbg-preview-panel {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  max-height: 800px;
+  overflow-y: auto;
+}
+.bbbg-paper-form {
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: 18px;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  color: #0f172a;
+}
+.bbbg-paper-header {
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.bbbg-paper-title {
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  color: #1e3a8a;
+}
+.bbbg-paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+.bbbg-paper-table th, .bbbg-paper-table td {
+  border: 1px solid #475569;
+  padding: 4px 6px;
+  font-size: 10px;
+}
+.bbbg-paper-table th {
+  background-color: #f1f5f9;
+  font-weight: 700;
+}
+
+/* --- Soft Warning Chips & Badges --- */
+.chip-soft-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* --- Inline Cell Editing --- */
+.cell-editable {
+  cursor: pointer;
+  position: relative;
+}
+.cell-editable:hover {
+  background-color: #eff6ff !important;
+  outline: 1px dashed #3b82f6;
+}
+.cell-editing-input {
+  width: 100%;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 2px solid #2563eb;
+  border-radius: 4px;
+  outline: none;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+/* --- Drawer Chi Tiết Sự Kiện Lỗi (File Lock / Permission Denied) --- */
+.drawer-error-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 2000;
+}
+.drawer-error-panel {
+  position: fixed;
+  top: 0;
+  right: -520px;
+  width: 500px;
+  max-width: 95vw;
+  height: 100vh;
+  background: #ffffff;
+  box-shadow: -8px 0 25px rgba(0, 0, 0, 0.2);
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.drawer-error-panel.open {
+  right: 0;
+}
+.drawer-error-header {
+  padding: 16px 20px;
+  background: #fee2e2;
+  border-bottom: 1px solid #fecaca;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drawer-error-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #991b1b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drawer-error-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+.drawer-error-footer {
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.error-card-bullet {
+  padding: 12px 14px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.bullet-cause {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+.bullet-saved {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+.bullet-action {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+

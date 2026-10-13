@@ -45,51 +45,100 @@
       </div>
     </header>
 
-    <!-- 5-Step Stepper Bar -->
-    <section class="stepper-container">
-      <div class="stepper">
-        <div class="step-item pending">
-          <div class="step-circle" id="step-circle-1">1</div>
-          <span class="step-label">1. Tải tồn</span>
-        </div>
-        <div class="step-divider active"></div>
-        <div class="step-item active">
-          <div class="step-circle" id="step-circle-2">2</div>
-          <span class="step-label">2. Điền OB</span>
-        </div>
-        <div class="step-divider"></div>
-        <div class="step-item pending">
-          <div class="step-circle" id="step-circle-3">3</div>
-          <span class="step-label">3. Ra đơn pick</span>
-        </div>
-        <div class="step-divider"></div>
-        <div class="step-item pending">
-          <div class="step-circle" id="step-circle-4">4</div>
-          <span class="step-label">4. Người dùng CF</span>
-        </div>
-        <div class="step-divider"></div>
-        <div class="step-item pending">
-          <div class="step-circle" id="step-circle-5">5</div>
-          <span class="step-label">5. BBBG</span>
-        </div>
-      </div>
-    </section>
-
     <!-- Main Content Area -->
     <main class="content-area">
       <!-- VIEW: DASHBOARD -->
       <div id="view-dashboard" class="view-section" style="display: none;">
         <div class="panel-card">
           <div class="section-header">
-            <h2 class="section-title">📊 Tổng quan Điều hành FG (Pilot)</h2>
-            <button class="btn btn-outline" onclick="loadDashboardView()">🔄 Làm mới</button>
+            <div>
+              <h2 class="section-title">📊 Điều hành FG — Báo cáo Tiến độ & Ca sản xuất</h2>
+              <div style="font-size:12px;color:#64748b;margin-top:2px;">Tích hợp dữ liệu thời gian thực: Stock V3.6, OB Tool RC52 và BBBG V2.2.14</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <div class="shift-filter-container">
+                <button class="btn-shift active" id="btn-shift-s1" onclick="switchShift('S1')">☀️ Ca sáng (06:00 - 14:00)</button>
+                <button class="btn-shift" id="btn-shift-s2" onclick="switchShift('S2')">⛅ Ca chiều (14:00 - 22:00)</button>
+                <button class="btn-shift" id="btn-shift-s3" onclick="switchShift('S3')">🌙 Ca đêm (22:00 - 06:00)</button>
+              </div>
+              <button class="btn btn-outline" onclick="loadDashboardView()">🔄 Làm mới</button>
+            </div>
           </div>
-          <div class="callout-info" style="margin-bottom: 14px;">
-            <span>ℹ️</span>
-            <span><strong>Chế độ vận hành:</strong> Xác nhận thực tế thủ công / nguồn nhập. Các chức năng <strong>SAP live write, GOS, email, in, UNC</strong>: <span class="badge-pilot-unsupported" style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:600;">Chưa hỗ trợ trong bản pilot</span> (không tự động báo thành công).</span>
-          </div>
-          <div id="dashboard-summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 12px 16px;">
+
+          <!-- 4 KPI Summary Cards -->
+          <div id="dashboard-summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 12px 16px;">
             <!-- Rendered via loadDashboardView() -->
+          </div>
+
+          <!-- Visual SVG Chart & Priority Tasks Layout -->
+          <div class="dashboard-visual-layout" style="padding: 0 16px 16px;">
+            <!-- Donut Chart Card -->
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">📈 Tỷ lệ hoàn thành ca (<span id="display-shift-name">Ca sáng</span>)</span>
+                <span class="chip chip-ready" id="display-shift-time">06:00 - 14:00</span>
+              </div>
+              <div class="chart-svg-container" id="shift-donut-chart-container">
+                <!-- Inline SVG Chart generated dynamically -->
+              </div>
+              <div class="chart-legend" id="shift-chart-legend">
+                <!-- Dynamically filled legend lines -->
+              </div>
+            </div>
+
+            <!-- Priority Tasks Table (Bảng công việc ưu tiên hôm nay) -->
+            <div class="chart-card" style="overflow-x:auto;">
+              <div class="chart-header">
+                <div>
+                  <span class="chart-title">🔥 Công việc ưu tiên hôm nay (DOH ≤ 200 XE)</span>
+                  <span style="font-size:12px;color:#64748b;margin-left:8px;">Trích xuất từ Stock V3.6 CANH BAO</span>
+                </div>
+                <button class="btn btn-primary" style="font-size:12px;padding:4px 10px;" onclick="transferAllPrioritiesToOb()">⚡ Nạp tất cả vào OB</button>
+              </div>
+              <table class="pick-table" style="font-size:12px;">
+                <thead>
+                  <tr>
+                    <th style="width:36px;">STT</th>
+                    <th>Mã chi tiết</th>
+                    <th>Model</th>
+                    <th>US</th>
+                    <th>Line Body (3003)</th>
+                    <th>Kho Body (1003)</th>
+                    <th>DOH (Xe)</th>
+                    <th>Mức ưu tiên</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-priority-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent Activities Table (Bảng hoạt động gần đây) -->
+          <div style="padding: 0 16px 16px;">
+            <div class="chart-card">
+              <div class="chart-header">
+                <span class="chart-title">🕒 Hoạt động gần đây (Nhật ký thao tác hệ thống)</span>
+                <button class="btn btn-outline" style="font-size:12px;padding:3px 8px;" onclick="loadDashboardView()">Làm mới</button>
+              </div>
+              <table class="pick-table" style="font-size:12px;">
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Bước thao tác</th>
+                    <th>Đối tượng / Mã đơn</th>
+                    <th>Trạng thái</th>
+                    <th>Chi tiết bằng chứng</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-recent-activities-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -418,38 +467,150 @@
       <div id="view-bbbg" class="view-section" style="display: none;">
         <div class="panel-card">
           <div class="section-header">
-            <h2 class="section-title">📄 Quản lý Biên bản Bàn giao (BBBG V2.2.14)</h2>
-            <button class="btn btn-outline" onclick="loadBbbgView()">🔄 Làm mới BBBG</button>
+            <div>
+              <h2 class="section-title">📄 Quản lý Biên bản Bàn giao (BBBG FG V2.2.14)</h2>
+              <div style="font-size:12px;color:#64748b;margin-top:2px;">Bảng nhập liệu chuẩn theo sheet <strong>ĐẦU_VÀO</strong> • Phôi in chuẩn <strong>BBBG_NEW</strong></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button class="btn btn-success" onclick="pullFromConfirmedCf()"><span style="font-size:14px;">📥</span> Lấy từ CF (Bước 4)</button>
+              <button class="btn btn-secondary" onclick="openBbbgPasteModal()"><span style="font-size:14px;">📋</span> Dán dữ liệu (Ctrl+V)</button>
+              <button class="btn btn-outline" onclick="document.getElementById('bbbg-excel-upload-input').click()"><span style="font-size:14px;">📂</span> Nhập file Excel</button>
+              <input type="file" id="bbbg-excel-upload-input" style="display:none;" accept=".xlsx,.xlsm,.csv" onchange="uploadBbbgExcelFile(event)">
+              <button class="btn btn-outline" onclick="downloadBbbgTemplate()"><span style="font-size:14px;">⬇</span> Tải file mẫu</button>
+              <button class="btn btn-outline" onclick="triggerBbbgAutoLookup()"><span style="font-size:14px;">⚡</span> Auto-Lookup</button>
+              <button class="btn btn-outline" onclick="clearSelectedBbbgRows()"><span style="font-size:14px;">🗑</span> Xóa dòng chọn</button>
+              <button class="btn btn-outline" onclick="loadBbbgView()">🔄 Làm mới</button>
+            </div>
           </div>
-          <div class="callout-info" style="background:#fffbeb;border-color:#fde68a;color:#92400e;">
-            <span>⚠️</span>
-            <span><strong>Trạng thái tính năng tích hợp ngoài:</strong>
-              SAP Live Write: <strong>Chưa hỗ trợ trong bản pilot</strong> •
-              Đính kèm GOS (BBBG/VAT): <strong>Chưa hỗ trợ trong bản pilot</strong> •
-              Gửi Email tự động: <strong>Chưa hỗ trợ trong bản pilot</strong> •
-              In tự động: <strong>Chưa hỗ trợ trong bản pilot</strong> •
-              Xuất UNC: <strong>Chưa hỗ trợ trong bản pilot</strong>.
-              (Chỉ mở khóa xuất file BBBG cục bộ khi đơn pick đã CF đủ 100%).
-            </span>
+
+          <!-- 4-Step Bottom Execution Toolbar -->
+          <div style="background:#f1f5f9;border-top:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:13px;font-weight:700;color:#1e293b;">Tiến trình 4 bước:</span>
+            <button class="btn btn-primary" onclick="executeBbbgStep(1)"><span style="font-weight:700;">1.</span> 📄 Tạo file</button>
+            <button class="btn btn-outline" onclick="executeBbbgStep(2)"><span style="font-weight:700;">2.</span> 🖨 In</button>
+            <button class="btn btn-outline" onclick="executeBbbgStep(3)"><span style="font-weight:700;">3.</span> ✉ Gửi mail</button>
+            <button class="btn btn-success" onclick="executeBbbgStep(4)"><span style="font-weight:700;">4.</span> 💾 Lưu tổng</button>
+            <span style="font-size:12px;color:#64748b;margin-left:auto;">💡 Mẹo: Nhấp trực tiếp vào ô để sửa dữ liệu (Inline Edit)</span>
           </div>
-          <div style="overflow-x:auto;">
-            <table class="pick-table">
-              <thead>
-                <tr>
-                  <th>Số phiếu BBBG</th>
-                  <th>Đơn pick</th>
-                  <th>Shop / Model</th>
-                  <th>Tổng SL</th>
-                  <th>Người giao</th>
-                  <th>Người nhận</th>
-                  <th>Vị trí (Bin)</th>
-                  <th>Trạng thái phiếu</th>
-                  <th>GOS / Email / In / UNC</th>
-                  <th>Tải file</th>
-                </tr>
-              </thead>
-              <tbody id="bbbg-records-body"></tbody>
-            </table>
+
+          <!-- Split View: Table on Left, Live Preview on Right -->
+          <div class="bbbg-split-container" style="padding: 14px 16px;">
+            <!-- Left: Grid Sheet ĐẦU_VÀO -->
+            <div class="bbbg-grid-panel">
+              <div style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:13px;font-weight:700;color:#334155;">📋 BẢNG NHẬP LIỆU (Sheet ĐẦU_VÀO)</span>
+                <span id="bbbg-grid-count" style="font-size:12px;color:#64748b;">Đã chọn: 0 dòng • Tổng: 0 PCS</span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="pick-table" id="bbbg-input-table" style="font-size:12px;border-collapse:collapse;width:100%;">
+                  <thead>
+                    <tr>
+                      <th style="width:30px;"><input type="checkbox" id="chk-bbbg-all" onchange="toggleSelectAllBbbg(this)"></th>
+                      <th style="width:36px;">STT</th>
+                      <th style="width:110px;">OB</th>
+                      <th style="width:140px;">Mã hàng</th>
+                      <th style="width:80px;">Số phiếu</th>
+                      <th style="width:90px;">Vị trí để hàng</th>
+                      <th style="width:70px;">SL</th>
+                      <th style="width:90px;">Model</th>
+                      <th style="width:100px;">Batch</th>
+                      <th>Note / Chứng từ</th>
+                      <th style="width:120px;">Trạng thái</th>
+                      <th style="width:110px;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bbbg-input-tbody">
+                    <!-- Dynamically populated rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Right: Preview BBBG_NEW Paper Form -->
+            <div class="bbbg-preview-panel">
+              <div style="font-size:13px;font-weight:700;color:#1e3a8a;margin-bottom:8px;display:flex;justify-content:space-between;">
+                <span>📄 XEM TRƯỚC MẪU IN (BBBG_NEW)</span>
+                <span style="font-size:11px;font-weight:normal;color:#64748b;">Khổ A4 • Logo nhà máy</span>
+              </div>
+              <div class="bbbg-paper-form" id="bbbg-preview-paper">
+                <div class="bbbg-paper-header">
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    <span class="logo-badge" style="background:#1e3a8a;font-size:11px;">VINFAST</span>
+                    <span style="font-size:10px;font-weight:700;">CÔNG TY CỔ PHẦN SẢN XUẤT VÀ KINH DOANH VINFAST</span>
+                  </div>
+                  <div style="font-size:9px;color:#64748b;text-align:right;">
+                    Doc ID: FVN_SX_KHO03.08<br>
+                    Version: 6.0 (Đã phê duyệt)
+                  </div>
+                </div>
+                <div class="bbbg-paper-title">BIÊN BẢN GIAO NHẬN<br><span style="font-size:10px;font-weight:normal;color:#64748b;">TRANSACTION RECORD FORM</span></div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;font-size:10px;">
+                  <div><strong>Ngày (Date):</strong> <span id="prev-handover-date">--/--/2026</span></div>
+                  <div><strong>Số phiếu (Slip No):</strong> <span id="prev-slip-no" style="font-weight:700;color:#2563eb;">577</span></div>
+                  <div><strong>Vị trí để hàng:</strong> <span id="prev-storage-bin" style="font-weight:700;">EDC</span></div>
+                  <div><strong>Shop:</strong> <span id="prev-shop-name">BODY</span></div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;font-size:10px;background:#f8fafc;padding:6px;border:1px solid #cbd5e1;">
+                  <div><strong>BÊN BÀN GIAO:</strong> Kho MA<br>Họ tên: <span id="prev-sender-name">GL_BODY_01</span></div>
+                  <div><strong>BÊN NHẬN BÀN GIAO:</strong> Shop Body / EDC<br>Họ tên: <span id="prev-receiver-name">Người nhận thực tế</span></div>
+                </div>
+
+                <table class="bbbg-paper-table">
+                  <thead>
+                    <tr>
+                      <th style="width:24px;">TT</th>
+                      <th>Mã Hàng Hóa</th>
+                      <th>Batch</th>
+                      <th>Số Inbound/Doc</th>
+                      <th>SL bàn giao</th>
+                    </tr>
+                  </thead>
+                  <tbody id="prev-paper-tbody">
+                    <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:10px;">Chưa chọn dòng nào để xuất BBBG</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr style="font-weight:700;background:#f1f5f9;">
+                      <td colspan="4" style="text-align:right;">Tổng (Total):</td>
+                      <td id="prev-paper-total-qty">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;font-size:9px;text-align:center;">
+                  <div><strong>ĐẠI DIỆN BÊN GIAO</strong><br><br><br>(Ký & ghi rõ họ tên)</div>
+                  <div><strong>ĐẠI DIỆN BÊN NHẬN</strong><br><br><br>(Ký & ghi rõ họ tên)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lịch sử danh sách phiếu BBBG đã lưu tổng -->
+          <div style="padding:0 16px 16px;">
+            <div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+              <span>📁 DANH SÁCH BIÊN BẢN BÀN GIAO ĐÃ LẬP (LƯU TỔNG SQLITE)</span>
+              <button class="btn btn-outline" style="font-size:12px;padding:3px 8px;" onclick="loadBbbgRecordsTable()">Làm mới lịch sử phiếu</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="pick-table" style="font-size:12px;">
+                <thead>
+                  <tr>
+                    <th>Số phiếu BBBG</th>
+                    <th>Đơn pick</th>
+                    <th>Shop / Model</th>
+                    <th>Tổng SL</th>
+                    <th>Người giao</th>
+                    <th>Người nhận</th>
+                    <th>Vị trí (Bin)</th>
+                    <th>Trạng thái phiếu</th>
+                    <th>Tải file</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="bbbg-records-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -696,6 +857,62 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal Dán dữ liệu từ Excel vào BBBG (Sheet ĐẦU_VÀO) -->
+  <div class="modal-overlay" id="bbbg-paste-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📋 Dán từ Excel vào bảng BBBG (Sheet ĐẦU_VÀO)</h3>
+        <button class="btn btn-outline" onclick="closeBbbgPasteModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="callout-info" style="font-size:12px;margin-bottom:10px;background:#f0fdf4;border-color:#bbf7d0;color:#166534;">
+          <strong>Nhập liệu trực tiếp từ Excel:</strong> Hỗ trợ dán phím tắt <code>Ctrl+V</code>. Giữ nguyên số lượng dấu Tab, tự động bỏ dòng Header, lọc bỏ lỗi công thức (<code>#N/A, #REF!</code>) và tự động nhận diện các cột: <code>OB | Mã hàng | SL | Số phiếu | Vị trí | Note | Model</code>. <strong>Tự động điền chéo (Auto-Lookup)</strong> cho các mã/OB có sẵn trong hệ thống!
+        </div>
+        <p style="font-size: 13px; color: #475569; margin-bottom: 6px;">
+          Bôi đen dữ liệu trong Excel và bấm <code>Ctrl+V</code> vào khung dưới:
+        </p>
+        <textarea id="bbbg-paste-textarea" style="width: 100%; height: 170px; font-family: monospace; font-size: 12px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;" placeholder="1012646320	BIW73012711CA	50	577	EDC	Note giao hàng	VF5 RHD"></textarea>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-secondary" onclick="closeBbbgPasteModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="submitBbbgPaste()">📥 Nạp vào bảng BBBG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drawer Chi tiết sự kiện lỗi (Bẫy 4: Khóa tệp / Permission Denied khi mở Excel) -->
+  <div class="drawer-error-overlay" id="error-drawer-overlay" onclick="closeErrorDrawer()"></div>
+  <aside class="drawer-error-panel" id="error-drawer-panel">
+    <div class="drawer-error-header">
+      <div class="drawer-error-title">
+        <span>⚠️</span>
+        <span>Chi tiết sự kiện lỗi — Khóa tệp (Permission Denied)</span>
+      </div>
+      <button class="btn btn-outline" onclick="closeErrorDrawer()" style="padding:2px 8px;">✕</button>
+    </div>
+    <div class="drawer-error-body">
+      <div class="error-card-bullet bullet-cause">
+        <strong>🔴 Nguyên nhân:</strong><br>
+        Tệp Excel đang được mở bởi ứng dụng khác (Microsoft Excel). Quá trình ghi bị từ chối bởi hệ điều hành Windows.
+      </div>
+      <div class="error-card-bullet bullet-saved">
+        <strong>🔵 Dữ liệu đã lưu:</strong><br>
+        Toàn bộ dữ liệu bàn giao và trạng thái đã được lưu trữ an toàn trong cơ sở dữ liệu SQLite (Database First Persistence). Không bị mất mát dữ liệu!
+      </div>
+      <div class="error-card-bullet bullet-action">
+        <strong>🟢 Hướng xử lý:</strong><br>
+        Vui lòng đóng tệp Excel trên máy tính của bạn, sau đó nhấn nút <strong>"Thử lại bước này"</strong> bên dưới để hoàn tất việc xuất file vật lý.
+      </div>
+      <div id="drawer-error-tech-details" style="font-family:monospace;font-size:11px;background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e2e8f0;color:#64748b;margin-top:14px;word-break:break-all;">
+        <!-- Technical trace details -->
+      </div>
+    </div>
+    <div class="drawer-error-footer">
+      <button class="btn btn-secondary" onclick="closeErrorDrawer()">Đóng</button>
+      <button class="btn btn-primary" id="btn-retry-drawer-action" onclick="retryLockedAction()">🔄 Thử lại bước này</button>
+    </div>
+  </aside>
 
   <!-- Zero-Port Data Bridge & JavaScript Grid Engine -->
   <script src="./data.js"></script>

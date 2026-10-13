@@ -87,7 +87,35 @@ def get_system_snapshot(db_path: Optional[str] = None) -> Dict[str, Any]:
             WHERE priority_flag IN ('LOW_STOCK_200', 'PULL_LINE', 'PRIORITY_OUT')
             LIMIT 50
         """).fetchall()
-        alerts = [dict(r) for r in rows_alerts]
+        # 6. Recent system activities for Dashboard
+        rows_events = conn.execute("""
+            SELECT job_id, step_name, event_type, target_ref, status, created_at,
+                   COALESCE(evidence, evidence_json, '') AS evidence
+            FROM job_events ORDER BY created_at DESC LIMIT 20
+        """).fetchall()
+        recent_events = [dict(r) for r in rows_events]
+
+        # 7. Load baseline dictionary if available
+        dict_path = APP_ROOT / "app" / "core" / "baseline_dictionary.json"
+        baseline_materials = {}
+        baseline_obs = {}
+        priority_warnings = []
+        shifts = [
+            {"id": "S1", "name": "Ca sáng", "time_range": "06:00 - 14:00", "hours": "8h"},
+            {"id": "S2", "name": "Ca chiều", "time_range": "14:00 - 22:00", "hours": "8h"},
+            {"id": "S3", "name": "Ca đêm", "time_range": "22:00 - 06:00", "hours": "8h"}
+        ]
+        if dict_path.exists():
+            try:
+                with open(dict_path, "r", encoding="utf-8") as f:
+                    dict_data = json.load(f)
+                    baseline_materials = dict_data.get("materials", {})
+                    baseline_obs = dict_data.get("obs", {})
+                    priority_warnings = dict_data.get("priority_warnings", [])
+                    if dict_data.get("shifts"):
+                        shifts = dict_data["shifts"]
+            except Exception as e:
+                logger.warning(f"Could not load baseline_dictionary.json: {e}")
 
         return {
             "version": APP_VERSION,
@@ -97,6 +125,11 @@ def get_system_snapshot(db_path: Optional[str] = None) -> Dict[str, Any]:
             "sap_status": "SAP_GUI_AVAILABLE",
             "stock_summary": stock_summary,
             "stock_alerts": alerts,
+            "priority_warnings": priority_warnings,
+            "shifts": shifts,
+            "baseline_materials": baseline_materials,
+            "baseline_obs": baseline_obs,
+            "recent_events": recent_events,
             "ob_items_body_3001": ob_body,
             "ob_items_edc_4007": ob_edc,
             "pick_orders": pick_orders,
@@ -120,6 +153,11 @@ def export_data_js(dataset: Dict[str, Any], output_path: Optional[Path] = None) 
         f"window.OB_ITEMS_EDC = window.MA_CONTROL_DATA.ob_items_edc_4007 || [];\n"
         f"window.PICK_ORDERS = window.MA_CONTROL_DATA.pick_orders || [];\n"
         f"window.BBBG_RECORDS = window.MA_CONTROL_DATA.bbbg_records || [];\n"
+        f"window.BASELINE_MATERIALS = window.MA_CONTROL_DATA.baseline_materials || {{}};\n"
+        f"window.BASELINE_OBS = window.MA_CONTROL_DATA.baseline_obs || {{}};\n"
+        f"window.PRIORITY_WARNINGS = window.MA_CONTROL_DATA.priority_warnings || [];\n"
+        f"window.RECENT_EVENTS = window.MA_CONTROL_DATA.recent_events || [];\n"
+        f"window.SHIFT_CONFIG = window.MA_CONTROL_DATA.shifts || [];\n"
     )
 
     written = []

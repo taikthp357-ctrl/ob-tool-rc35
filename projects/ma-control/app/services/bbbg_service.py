@@ -172,9 +172,8 @@ class BBBGService:
                 header = {'slip_no': generated_slip, 'doc_no': doc_code, 'sender_name': sender_name, 'receiver_name': receiver_name, 'shop': po['shop'], 'storage_bin': storage_bin, 'handover_date': today_iso, 'template_mode': template_mode, 'font_size': font_size}
                 if reconciliation:
                     header['reconciliation'] = reconciliation
-                export_evidence = export_bbbg(exported_path, header, export_items)
 
-                # Insert into bbbg_records
+                # 1. Database First Persistence: Commit bbbg_records to SQLite before writing physical file
                 cur = conn.execute("""
                     INSERT INTO bbbg_records (
                         bbbg_uuid, bbbg_no, dedup_key, pick_order_id, pick_order_no,
@@ -205,7 +204,57 @@ class BBBGService:
                 if reconciliation:
                     conn.execute("UPDATE bbbg_records SET status='VERIFIED_IMPORTED' WHERE id=?", (bbbg_id,))
 
-                # Audit log
+                # 2. Export physical file with intelligent File Lock catching (PermissionError / WinError 32)
+                is_file_locked = False
+                export_evidence = {}
+                try:
+                    export_evidence = export_bbbg(exported_path, header, export_items)
+                except (PermissionError, OSError) as pe:
+                    err_str = str(pe)
+                    is_lock = (
+                        getattr(pe, "winerror", None) == 32
+                        or isinstance(pe, PermissionError)
+                        or "used by another process" in err_str
+                        or "Permission denied" in err_str
+                    )
+                    if is_lock:
+                        is_file_locked = True
+                        conn.execute("UPDATE bbbg_records SET status='FILE_LOCKED' WHERE id=?", (bbbg_id,))
+                        conn.execute("""
+                            INSERT INTO job_events (
+                                job_id, business_key, job_type, step_name, event_type,
+                                target_ref, status, evidence, evidence_json, created_at
+                            ) VALUES (?, ?, 'BBBG', 'GENERATE_BBBG', 'FILE_LOCKED', ?, 'WARNING', ?, ?, ?)
+                        """, (
+                            str(uuid.uuid4()), f"BBBG_{generated_slip}", str(bbbg_id),
+                            "Tệp Excel đang được mở bởi ứng dụng khác (Microsoft Excel). Quá trình ghi bị từ chối.",
+                            json.dumps({"error": err_str, "slip_no": generated_slip, "saved_in_db": True}, ensure_ascii=False),
+                            now_iso
+                        ))
+                    else:
+                        raise
+
+                if is_file_locked:
+                    return {
+                        "status": "FILE_LOCKED",
+                        "is_file_locked": True,
+                        "id": bbbg_id,
+                        "record_id": bbbg_id,
+                        "bbbg_uuid": bbbg_uuid,
+                        "bbbg_no": generated_slip,
+                        "slip_no": generated_slip,
+                        "dedup_key": dedup_key,
+                        "pick_order_id": po_id,
+                        "pick_order_code": po_code,
+                        "total_qty": total_qty,
+                        "saved_in_db": True,
+                        "error_title": "Khóa tệp (Permission Denied)",
+                        "reason": "Tệp Excel đang được mở bởi ứng dụng khác (Microsoft Excel). Quá trình ghi bị từ chối.",
+                        "db_status": "Toàn bộ dữ liệu bàn giao đã được lưu trữ an toàn trong cơ sở dữ liệu SQLite.",
+                        "action_advice": "Vui lòng đóng tệp Excel trên máy và nhấn nút 'Thử lại bước này'."
+                    }
+
+                # Audit log for successful export
                 conn.execute("""
                     INSERT INTO job_events (
                         job_id, business_key, job_type, step_name, event_type,
