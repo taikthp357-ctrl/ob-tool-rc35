@@ -378,6 +378,10 @@ if (!window.__MA_CONTROL_APP_LOADED__) {
   }
 
   window.loadPickOrders = async function() {
+    if (window.MA_CONTROL_DATA && window.MA_CONTROL_DATA.pick_orders && window.MA_CONTROL_DATA.pick_orders.length > 0) {
+      renderPickOrders(window.MA_CONTROL_DATA.pick_orders);
+      return;
+    }
     try {
       const res = await fetch('/api/pick-orders');
       if (res.ok) {

@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MA CONTROL — Điều hành FG</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo-badge">MA</span>
+      <span class="logo-text">CONTROL FG</span>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item" data-view="dashboard"><a href="#" onclick="switchView('dashboard'); return false;">📊 Điều hành FG</a></li>
+      <li class="nav-item" data-view="stock"><a href="#" onclick="switchView('stock'); return false;">📦 Tồn & ưu tiên</a></li>
+      <li class="nav-item active" data-view="grid"><a href="#" onclick="switchView('grid'); return false;">📝 Điền OB / Đơn pick</a></li>
+      <li class="nav-item" data-view="waiting_cf"><a href="#" onclick="switchView('waiting_cf'); return false;">⏳ Chờ CF <span class="nav-badge" id="badge-cf-count">0</span></a></li>
+      <li class="nav-item" data-view="bbbg"><a href="#" onclick="switchView('bbbg'); return false;">📄 BBBG</a></li>
+      <li class="nav-item" data-view="history"><a href="#" onclick="switchView('history'); return false;">📋 Lịch sử</a></li>
+      <li class="nav-item" data-view="config"><a href="#" onclick="switchView('config'); return false;">⚙️ Cấu hình</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      Build 261013 • Localhost<br>
+      OB Tool RC52 / BBBG V2.2.14
+    </div>
+  </aside>
+
+  <!-- Main Container -->
+  <div class="main-wrapper">
+    <!-- Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <h1 class="page-title">MA CONTROL — Điều hành FG</h1>
+        <span class="status-badge sap-connected">
+          <span class="dot"></span><span id="sap-status-label">Đang kiểm tra SAP</span>
+        </span>
+        <span class="tag-badge">RC52 • FG</span>
+      </div>
+      <div class="header-right">
+        <div class="user-info">Pilot dữ liệu nguồn • CF do người dùng xác nhận</div>
+      </div>
+    </header>
+
+    <!-- 5-Step Stepper Bar -->
+    <section class="stepper-container">
+      <div class="stepper">
+        <div class="step-item pending">
+          <div class="step-circle" id="step-circle-1">1</div>
+          <span class="step-label">1. Tải tồn</span>
+        </div>
+        <div class="step-divider active"></div>
+        <div class="step-item active">
+          <div class="step-circle" id="step-circle-2">2</div>
+          <span class="step-label">2. Điền OB</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step-item pending">
+          <div class="step-circle" id="step-circle-3">3</div>
+          <span class="step-label">3. Ra đơn pick</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step-item pending">
+          <div class="step-circle" id="step-circle-4">4</div>
+          <span class="step-label">4. Người dùng CF</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step-item pending">
+          <div class="step-circle" id="step-circle-5">5</div>
+          <span class="step-label">5. BBBG</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+      <!-- VIEW: DASHBOARD -->
+      <div id="view-dashboard" class="view-section" style="display: none;">
+        <div class="panel-card">
+          <div class="section-header">
+            <h2 class="section-title">📊 Tổng quan Điều hành FG (Pilot)</h2>
+            <button class="btn btn-outline" onclick="loadDashboardView()">🔄 Làm mới</button>
+          </div>
+          <div class="callout-info" style="margin-bottom: 14px;">
+            <span>ℹ️</span>
+            <span><strong>Chế độ vận hành:</strong> Xác nhận thực tế thủ công / nguồn nhập. Các chức năng <strong>SAP live write, GOS, email, in, UNC</strong>: <span class="badge-pilot-unsupported" style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:600;">Chưa hỗ trợ trong bản pilot</span> (không tự động báo thành công).</span>
+          </div>
+          <div id="dashboard-summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 12px 16px;">
+            <!-- Rendered via loadDashboardView() -->
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: STOCK & PRIORITY -->
+      <div id="view-stock" class="view-section" style="display: none;">
+        <div class="panel-card">
+          <div class="section-header">
+            <h2 class="section-title">📦 Màn tồn & Báo cáo trực quan FG (Stock FG V3.6)</h2>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-sap-download-mb52" onclick="downloadSapMb52Direct()">⚡ Tải tồn trực tiếp từ SAP (MB52)</button>
+              <span id="stock-sap-status-badge" class="badge" style="background:#f1f5f9;color:#475569;font-size:12px;padding:5px 9px;border-radius:4px;border:1px solid #cbd5e1;">● SAP: Đang kiểm tra...</span>
+              <button class="btn btn-outline" onclick="document.getElementById('mb52-upload-input').click()">📂 Nạp file MB52 dự phòng</button>
+              <input type="file" id="mb52-upload-input" style="display:none;" accept=".xlsx,.xlsm,.csv,.tsv,.txt" onchange="uploadMb52File(event)">
+              <button class="btn btn-outline" onclick="loadStockView()">🔄 Làm mới dữ liệu</button>
+            </div>
+          </div>
+          <div id="sap-download-feedback" style="display:none;padding:8px 14px;margin:8px 16px;border-radius:6px;font-size:13px;"></div>
+        </div>
+
+        <!-- BÁO CÁO MA TRẬN (LINE + KHO) BODY THEO ẢNH THAM CHIẾU -->
+        <div class="panel-card" style="margin-top: 16px;">
+          <div class="section-header">
+            <h2 class="section-title">📊 Báo cáo ma trận <span id="matrix-title-display">(LINE + KHO) BODY</span> • Cập nhật: <span id="matrix-time-display">--</span> <span id="matrix-date-display">--</span></h2>
+            <span class="badge" style="background:#fee2e2;color:#991b1b;font-size:12px;padding:4px 8px;border-radius:4px;font-weight:600;">⚠ Cảnh báo đỏ ở dải &lt;= 200 XE</span>
+          </div>
+          <div style="padding:4px 16px 12px;font-size:12px;color:#64748b;">
+            Báo cáo trực quan FG: 8 model × 9 dải tồn XE không chồng lấn. Nhấp vào số tổng ô bất kỳ để xem danh sách chi tiết các mã.
+          </div>
+          <div style="overflow-x:auto;padding:0 16px 16px;">
+            <table class="pick-table" id="visual-matrix-table" style="border:1px solid #cbd5e1;border-collapse:collapse;width:100%;">
+              <thead id="visual-matrix-thead"></thead>
+              <tbody id="visual-matrix-tbody"></tbody>
+              <tfoot id="visual-matrix-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- HAI BẢNG TỒN: BẢNG ƯU TIÊN VÀ BẢNG TỔNG TỒN -->
+        <div class="panel-card" style="margin-top: 16px;">
+          <div class="section-header">
+            <div style="display:flex;gap:12px;align-items:center;">
+              <button class="btn btn-primary" id="btn-tab-priority-table" onclick="switchStockSubTable('priority')">🔥 Bảng ưu tiên xuất kho</button>
+              <button class="btn btn-outline" id="btn-tab-total-table" onclick="switchStockSubTable('total')">📋 Bảng tổng tồn chi tiết</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" class="search-input" id="stock-filter-material-sub" placeholder="🔍 Lọc mã hàng..." oninput="filterStockSubTables()">
+              <select class="select-filter" id="stock-filter-plant-sub" onchange="loadTwoStockTables()">
+                <option value="3001">Plant 3001 (Body)</option>
+                <option value="3093">Plant 3093 (MA)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Container 1: Bảng ưu tiên -->
+          <div id="container-priority-table" style="overflow-x:auto;padding:12px 16px;">
+            <table class="pick-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;">STT</th>
+                  <th style="width:140px;">Mã hàng</th>
+                  <th style="width:100px;">Model</th>
+                  <th style="width:60px;">US</th>
+                  <th style="width:90px;">Line 3003</th>
+                  <th style="width:90px;">Kho 1003</th>
+                  <th style="width:100px;">Tổng Body</th>
+                  <th style="width:90px;">DOH (XE)</th>
+                  <th style="width:200px;">Cảnh báo / Lý do ưu tiên</th>
+                </tr>
+              </thead>
+              <tbody id="stock-priority-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Container 2: Bảng tổng tồn -->
+          <div id="container-total-table" style="display:none;overflow-x:auto;padding:12px 16px;">
+            <table class="pick-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;">STT</th>
+                  <th style="width:140px;">Mã hàng</th>
+                  <th style="width:100px;">Model</th>
+                  <th style="width:60px;">US</th>
+                  <th style="width:85px;">Line 3003</th>
+                  <th style="width:85px;">Kho 1003</th>
+                  <th style="width:85px;">Line 3000</th>
+                  <th style="width:85px;">Kho 3093</th>
+                  <th style="width:85px;">In-Transit 3001</th>
+                  <th style="width:95px;">Tổng Body</th>
+                  <th style="width:90px;">DOH (XE)</th>
+                </tr>
+              </thead>
+              <tbody id="stock-total-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- KHU GỢI Ý TỒN THẤP (THAY THẾ CHẾ ĐỘ 2-3 BATCH) -->
+        <div class="panel-card" style="margin-top: 16px;" id="panel-low-stock-suggestions">
+          <div class="section-header">
+            <h2 class="section-title">💡 Khu gợi ý tồn thấp (DOH = INT(Tổng Body / US))</h2>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-outline" onclick="loadLowStockSuggestions()">🔄 Tải danh sách gợi ý</button>
+              <button class="btn btn-primary" onclick="transferSelectedSuggestionsToOB()">📥 Chuyển gợi ý đã chọn sang Bảng điền OB</button>
+            </div>
+          </div>
+          <div class="callout-info" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534;margin-bottom:12px;">
+            <span>💡</span>
+            <span><strong>Quy tắc tính toán:</strong> Lượng bổ sung được tính từ tồn hiện hành và DOH của model (<code>DOH = INT(Tổng Body / US)</code> theo baseline V3.6). Không cố định 2–3 batch hay lấy hết batch. Tôn trọng plant/kho/shop và lượng khả dụng. Người dùng xem, chọn và trực tiếp chỉnh sửa số lượng theo mã và batch trước khi chuyển sang bảng điền OB.</span>
+          </div>
+          <div style="overflow-x:auto;padding:0 16px 16px;">
+            <table class="pick-table" id="suggestions-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;"><input type="checkbox" id="chk-sugg-all" onchange="toggleAllSuggestions(this.checked)"></th>
+                  <th style="width:130px;">Mã hàng</th>
+                  <th style="width:90px;">Model</th>
+                  <th style="width:50px;">US</th>
+                  <th style="width:85px;">Tổng Body</th>
+                  <th style="width:85px;">DOH hiện tại</th>
+                  <th style="width:80px;">Ngưỡng DOH</th>
+                  <th style="width:120px;">Lượng cần bổ sung</th>
+                  <th>Chi tiết đề xuất theo batch khả dụng</th>
+                </tr>
+              </thead>
+              <tbody id="suggestions-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: GRID (Điền OB / Đơn pick) -->
+      <div id="view-grid" class="view-section">
+      <!-- Top Card: Excel Data Grid -->
+      <div class="panel-card">
+        <!-- Toolbar Header -->
+        <div class="toolbar-header">
+          <div class="branch-tabs">
+            <button class="tab-btn active" data-branch="BODY_3001">Body • 3001</button>
+            <button class="tab-btn" data-branch="EDC_4007">EDC • 4007 (Hoãn theo chỉ đạo)</button>
+          </div>
+
+          <div class="toolbar-actions">
+            <button class="btn btn-secondary" id="btn-get-stock">📥 Lấy từ tồn</button>
+            <button class="btn btn-secondary" id="btn-paste-excel">📋 Dán từ Excel</button>
+            <button class="btn btn-secondary" id="btn-add-row">+ Thêm dòng</button>
+            <button class="btn btn-secondary" id="btn-del-row" onclick="deleteActiveRow()">- Xóa dòng</button>
+          </div>
+
+          <div class="filter-bar">
+            <input type="text" class="search-input" placeholder="🔍 Tìm mã / OB..." id="input-search">
+            <select class="select-filter" id="select-model">
+              <option value="">Tất cả model</option>
+              <option value="VF5">VF5 RHD</option>
+              <option value="VF8">VF8</option>
+              <option value="VF9">VF9</option>
+            </select>
+            <select class="select-filter" id="select-status">
+              <option value="">Tất cả trạng thái</option>
+              <option value="UNCHECKED">UNCHECKED — Mới nhập / Chưa kiểm tra</option>
+              <option value="INVALID_OR_CANCELLED">INVALID_OR_CANCELLED — Không hợp lệ / Đã hủy</option>
+              <option value="LOCKED_OR_INSUFFICIENT">LOCKED_OR_INSUFFICIENT — Đang khóa / Thiếu tồn</option>
+              <option value="READY_FOR_PICK">ELIGIBLE_FOR_PICK — Đủ điều kiện tạo pick</option>
+              <option value="PENDING_CF">PENDING_CF — Chờ CF</option>
+              <option value="PARTIAL_CF">PARTIAL_CF — CF một phần</option>
+              <option value="CONFIRMED_CF">CONFIRMED_CF — Đã xác nhận CF đầy đủ</option>
+              <option value="ELIGIBLE_BBBG">ELIGIBLE_BBBG — Đủ điều kiện tạo/đối soát BBBG</option>
+            </select>
+          </div>
+
+          <div class="toolbar-actions">
+            <button class="btn btn-outline" id="btn-check">🔍 Kiểm tra</button>
+            <button class="btn btn-primary" id="btn-fill-ob">⚡ Điền OB</button>
+            <button class="btn btn-success" id="btn-create-pick">📦 Ra đơn pick</button>
+          </div>
+        </div>
+
+        <!-- Excel Table Grid -->
+        <div class="grid-container">
+          <table class="excel-table" id="excel-grid">
+            <thead>
+              <tr>
+                <th style="width: 44px;">#</th>
+                <th style="width: 110px;"><span class="col-excel-letter">A</span>Model</th>
+                <th style="width: 160px;"><span class="col-excel-letter">B</span>Mã hàng</th>
+                <th style="width: 100px;"><span class="col-excel-letter">C</span>SL yêu cầu</th>
+                <th style="width: 110px;"><span class="col-excel-letter">D</span>Batch</th>
+                <th style="width: 90px;"><span class="col-excel-letter">E</span>Shop</th>
+                <th style="width: 120px;"><span class="col-excel-letter">F</span>STO</th>
+                <th style="width: 120px;"><span class="col-excel-letter">G</span>OB</th>
+                <th style="width: 140px;"><span class="col-excel-letter">H</span>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="grid-body">
+              <!-- Dynamically rendered rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Grid Footer -->
+        <div class="grid-footer">
+          <div class="selection-summary" id="selection-summary">Đã chọn: 0 mã • Tổng SL: 0 PCS</div>
+          <div class="shortcut-hints">💡 Ctrl+V để dán nhiều ô/dòng • Tab / Enter để di chuyển ô</div>
+        </div>
+      </div>
+
+      <!-- Bottom Card: Đơn pick đã tạo (Chờ người dùng CF) -->
+      <div class="panel-card pick-orders-section">
+        <div class="section-header">
+          <h2 class="section-title">📦 Đơn pick đã tạo (Chờ người dùng CF)</h2>
+          <button class="btn btn-outline" onclick="loadPickOrders()">🔄 Làm mới danh sách</button>
+        </div>
+
+        <div class="callout-info">
+          <span>ℹ️</span>
+          <span><strong>Quy tắc bất biến:</strong> Sau khi kiểm tra thực tế, người dùng phải bấm <strong>Kiểm tra CF</strong> thì đơn pick mới đủ điều kiện chuyển sang bước <strong>5. BBBG</strong>. Hệ thống tuyệt đối không tự động xác nhận ngầm!</span>
+          <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 10px; font-size: 12px;" onclick="switchView('waiting_cf')">Mở danh sách chờ CF ➔</button>
+        </div>
+
+        <table class="pick-table">
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số phiếu</th>
+              <th>OB</th>
+              <th>Mã hàng</th>
+              <th>Số lượng (PCS)</th>
+              <th>Vị trí</th>
+              <th>Packing box/rack</th>
+              <th>Trạng thái</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="pick-orders-body">
+            <!-- Dynamically rendered pick orders -->
+          </tbody>
+        </table>
+      </div>
+      </div><!-- End #view-grid -->
+
+      <!-- VIEW: WAITING CF (Chờ CF thực tế) -->
+      <div id="view-waiting-cf" class="view-section" style="display: none;">
+        <div class="panel-card">
+          <div class="section-header">
+            <h2 class="section-title">⏳ Danh sách Chờ CF thực tế (Kiểm tra hàng thực tế tại kho/line)</h2>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-secondary" onclick="openDirectPasteModal()">📋 Dán Excel vào Chờ CF</button>
+              <button class="btn btn-outline" onclick="loadWaitingCfView()">🔄 Làm mới</button>
+              <button class="btn btn-primary" onclick="saveAllWaitingCfLines()">💾 Lưu tiến độ các dòng đã nhập</button>
+            </div>
+          </div>
+          <div class="callout-info" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af;">
+            <span>🔎</span>
+            <span><strong>Phân định rõ nguồn CF:</strong> Đây là <strong>Xác nhận thực tế thủ công / nguồn nhập</strong> (kiểm đếm hàng thực tế). Chức năng CF trực tiếp trên SAP live: <strong>Chưa hỗ trợ trong bản pilot</strong> (hệ thống tuyệt đối không tự báo SAP đã CF). Chỉ khi tất cả các dòng trong đơn đạt 100% SL yêu cầu thì đơn mới rời danh sách Chờ CF và mở khóa BBBG.</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #e2e8f0;align-items:center;">
+            <input type="text" class="search-input" id="cf-filter-ob" placeholder="🔍 Lọc theo số OB..." oninput="loadWaitingCfView()">
+            <input type="text" class="search-input" id="cf-filter-pick" placeholder="🔍 Lọc số đơn pick..." oninput="loadWaitingCfView()">
+            <input type="text" class="search-input" id="cf-filter-material" placeholder="🔍 Lọc mã hàng..." oninput="loadWaitingCfView()">
+            <input type="text" class="search-input" id="cf-filter-batch" placeholder="🔍 Lọc batch..." oninput="loadWaitingCfView()">
+            <select class="select-filter" id="cf-filter-status" onchange="loadWaitingCfView()">
+              <option value="">Tất cả đang chờ / dở dang</option>
+              <option value="WAITING_CF">PENDING_CF / WAITING_CF — Chờ CF</option>
+              <option value="PARTIAL_CF">PARTIAL_CF — CF một phần</option>
+            </select>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+              <label style="font-size:13px;font-weight:600;">Người kiểm thực tế:</label>
+              <input type="text" class="search-input" id="cf-view-operator" placeholder="Nhập tên người kiểm..." style="width:160px;">
+              <input type="text" class="search-input" id="cf-view-evidence" placeholder="Bằng chứng / nguồn..." style="width:180px;">
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="pick-table">
+              <thead>
+                <tr>
+                  <th>Đơn / Nguồn</th>
+                  <th>Số OB</th>
+                  <th>Mã hàng</th>
+                  <th>Plant</th>
+                  <th>Batch</th>
+                  <th>Box</th>
+                  <th>Rack</th>
+                  <th>SL yêu cầu</th>
+                  <th>SL thực tế</th>
+                  <th>Còn thiếu</th>
+                  <th>Lý do thiếu / Ghi chú</th>
+                  <th>Trạng thái CF</th>
+                  <th>Nguồn xác nhận</th>
+                  <th>Người / Giờ kiểm</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="waiting-cf-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card" style="margin-top:16px;">
+          <div class="section-header">
+            <h2 class="section-title">🕒 Lịch sử kiểm tra CF từng dòng (Người / Giờ / Bằng chứng)</h2>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="pick-table">
+              <thead>
+                <tr>
+                  <th>Thời gian</th>
+                  <th>Người kiểm</th>
+                  <th>Số OB</th>
+                  <th>Mã hàng</th>
+                  <th>Batch</th>
+                  <th>Yêu cầu</th>
+                  <th>Thực tế</th>
+                  <th>Còn thiếu</th>
+                  <th>Lý do</th>
+                  <th>Trạng thái</th>
+                  <th>Bằng chứng / Nguồn</th>
+                </tr>
+              </thead>
+              <tbody id="waiting-cf-history-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: BBBG -->
+      <div id="view-bbbg" class="view-section" style="display: none;">
+        <div class="panel-card">
+          <div class="section-header">
+            <h2 class="section-title">📄 Quản lý Biên bản Bàn giao (BBBG V2.2.14)</h2>
+            <button class="btn btn-outline" onclick="loadBbbgView()">🔄 Làm mới BBBG</button>
+          </div>
+          <div class="callout-info" style="background:#fffbeb;border-color:#fde68a;color:#92400e;">
+            <span>⚠️</span>
+            <span><strong>Trạng thái tính năng tích hợp ngoài:</strong>
+              SAP Live Write: <strong>Chưa hỗ trợ trong bản pilot</strong> •
+              Đính kèm GOS (BBBG/VAT): <strong>Chưa hỗ trợ trong bản pilot</strong> •
+              Gửi Email tự động: <strong>Chưa hỗ trợ trong bản pilot</strong> •
+              In tự động: <strong>Chưa hỗ trợ trong bản pilot</strong> •
+              Xuất UNC: <strong>Chưa hỗ trợ trong bản pilot</strong>.
+              (Chỉ mở khóa xuất file BBBG cục bộ khi đơn pick đã CF đủ 100%).
+            </span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="pick-table">
+              <thead>
+                <tr>
+                  <th>Số phiếu BBBG</th>
+                  <th>Đơn pick</th>
+                  <th>Shop / Model</th>
+                  <th>Tổng SL</th>
+                  <th>Người giao</th>
+                  <th>Người nhận</th>
+                  <th>Vị trí (Bin)</th>
+                  <th>Trạng thái phiếu</th>
+                  <th>GOS / Email / In / UNC</th>
+                  <th>Tải file</th>
+                </tr>
+              </thead>
+              <tbody id="bbbg-records-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: HISTORY (job_events) -->
+      <div id="view-history" class="view-section" style="display: none;">
+        <div class="panel-card">
+          <div class="section-header">
+            <h2 class="section-title">📋 Lịch sử sự kiện hệ thống (job_events)</h2>
+            <div style="display:flex;gap:8px;">
+              <input type="text" class="search-input" id="history-filter-q" placeholder="🔍 Tìm mã đơn / OB / bằng chứng..." oninput="renderHistoryTable()">
+              <button class="btn btn-outline" onclick="loadHistoryView()">🔄 Làm mới lịch sử</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="pick-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Thời gian</th>
+                  <th>Loại Job</th>
+                  <th>Bước (Step)</th>
+                  <th>Đối tượng (Ref)</th>
+                  <th>Trạng thái</th>
+                  <th>Chi tiết bằng chứng (Evidence)</th>
+                </tr>
+              </thead>
+              <tbody id="history-events-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: CONFIG (Cấu hình) -->
+      <div id="view-config" class="view-section" style="display: none;">
+        <div class="panel-card">
+          <div class="section-header">
+            <h2 class="section-title">⚙️ Cấu hình hệ thống & Danh mục Master Data</h2>
+            <button class="btn btn-outline" onclick="loadConfigView()">🔄 Làm mới cấu hình</button>
+          </div>
+          <div style="padding:16px;">
+            <h3 style="font-size:14px;margin-bottom:8px;">1. Trạng thái tích hợp trong bản Pilot</h3>
+            <table class="pick-table" style="margin-bottom:20px;">
+              <thead>
+                <tr>
+                  <th>Chức năng</th>
+                  <th>Trạng thái hiện tại</th>
+                  <th>Ghi chú vận hành</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>SAP Live Write (Tạo/Xóa OB, GR trực tiếp)</td><td><span class="chip chip-insufficient">Chưa hỗ trợ trong bản pilot</span></td><td>Thực hiện trên SAP rồi nạp file MB52/MB51/VL06I để đối chiếu</td></tr>
+                <tr><td>Đính kèm chứng từ GOS (BBBG & VAT)</td><td><span class="chip chip-insufficient">Chưa hỗ trợ trong bản pilot</span></td><td>Không tự động báo thành công GOS</td></tr>
+                <tr><td>Gửi Email Outlook tự động</td><td><span class="chip chip-insufficient">Chưa hỗ trợ trong bản pilot</span></td><td>Không gửi mail ngầm</td></tr>
+                <tr><td>In phiếu tự động ra máy in</td><td><span class="chip chip-insufficient">Chưa hỗ trợ trong bản pilot</span></td><td>Tải file Excel BBBG đã xuất để in thủ công</td></tr>
+                <tr><td>Xuất thư mục mạng UNC Share</td><td><span class="chip chip-insufficient">Chưa hỗ trợ trong bản pilot</span></td><td>Lưu cục bộ tại máy trạm</td></tr>
+              </tbody>
+            </table>
+
+            <h3 style="font-size:14px;margin-bottom:8px;">2. Cài đặt hệ thống (Settings DB)</h3>
+            <div id="config-settings-box" style="margin-bottom:20px;"></div>
+
+            <h3 style="font-size:14px;margin-bottom:8px;">3. Danh mục Model Mappings (model_mappings)</h3>
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+              <input type="text" class="search-input" id="cfg-map-mat" placeholder="Mã hàng (VD: BIW71001001)">
+              <input type="text" class="search-input" id="cfg-map-model" placeholder="Model (VD: VF8 LIMO)">
+              <input type="text" class="search-input" id="cfg-map-shop" placeholder="Shop (BODY/EDC)">
+              <button class="btn btn-primary" onclick="saveModelMappingConfig()">+ Lưu Mapping</button>
+            </div>
+            <table class="pick-table">
+              <thead>
+                <tr><th>Mã hàng</th><th>Model Code</th><th>Shop</th><th>Ghi chú</th></tr>
+              </thead>
+              <tbody id="config-mappings-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Manual CF Confirmation -->
+  <div class="modal-overlay" id="cf-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Xác nhận Kiểm tra CF — Đơn pick <span id="modal-pick-no"></span></h3>
+        <button class="btn btn-outline" onclick="closeCfModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 12px; font-size: 14px; color: #334155;">
+          Bạn đang thực hiện <strong>Bước 4: Người dùng CF (Xác nhận thủ công)</strong>.
+        </p>
+        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 13px;">
+          <p><strong>Cam kết kiểm tra:</strong></p>
+          <ul style="margin-left: 18px; margin-top: 6px; color: #475569;">
+            <li>Đã kiểm tra thực tế hàng hóa tại bãi tập kết / kho.</li>
+            <li>Khớp đúng mã hàng, số lượng và số lô (batch).</li>
+            <li>Sẵn sàng chuyển giao sang bước 5 để lập Biên bản bàn giao (BBBG).</li>
+          </ul>
+        </div>
+        <p style="font-size: 12px; color: #d97706; font-weight: 600;">
+          ⚠️ Sau khi xác nhận CF, trạng thái đơn sẽ chuyển sang <code>USER_CONFIRMED</code> và không thể đảo ngược.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCfModal()">Hủy bỏ</button>
+        <button class="btn btn-primary" onclick="confirmPickOrder()">Xác nhận CF hợp lệ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Stock Ingestion / Pick from Stock -->
+  <div class="modal-overlay" id="stock-modal">
+    <div class="modal-card" style="width: 720px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📦 Lấy từ Tồn kho (Stock FG V3.6)</h3>
+        <button class="btn btn-outline" onclick="closeStockModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
+          Chọn mã vật tư ưu tiên xuất từ snapshot tồn kho để nạp tự động vào bảng lưới OB:
+        </p>
+        <div id="stock-modal-list" style="max-height: 250px; overflow-y: auto;">
+          <!-- Rendered items -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeStockModal()">Đóng</button>
+        <button class="btn btn-primary" onclick="importSelectedStock()">Nạp vào lưới OB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Paste from Excel Helper -->
+  <div class="modal-overlay" id="paste-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📋 Dán từ Excel (Clipboard Helper)</h3>
+        <button class="btn btn-outline" onclick="closePasteModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #475569; margin-bottom: 8px;">
+          Nhấn <code>Ctrl+V</code> vào ô bên dưới nếu bạn không dùng dán trực tiếp trên lưới:
+        </p>
+        <textarea id="paste-textarea" style="width: 100%; height: 160px; font-family: monospace; font-size: 12px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;" placeholder="Dán các cột Mã hàng, Model, SL, Batch..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasteModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="applyManualPaste()">Nạp vào bảng lưới</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Create BBBG (Step 5) -->
+  <!-- Modal Dán trực tiếp từ Excel vào Chờ CF -->
+  <div class="modal-overlay" id="direct-paste-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📋 Dán danh sách từ Excel vào Chờ CF (Người dùng quản lý)</h3>
+        <button class="btn btn-outline" onclick="closeDirectPasteModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="callout-info" style="font-size:12px;margin-bottom:10px;background:#f0f9ff;border-color:#bae6fd;color:#0369a1;">
+          <strong>Quy tắc người dùng quản lý:</strong> Cho phép dán trực tiếp danh sách từ Excel vào Chờ CF, <strong>KHÔNG bắt buộc đi qua đơn pick tự sinh</strong>. Hỗ trợ các cột: <code>OB | Mã hàng | Plant | Batch | Số lượng | Packing Box | Rack</code>. <strong>Bảo toàn tuyệt đối số 0 đầu chuỗi</strong>. Packing box, rack và quyết định ra đơn do người dùng xử lý; ứng dụng không tự tính/chọn đóng gói hay tự điều phối ra đơn. Chống dán trùng thực sự trên DB.
+        </div>
+        <p style="font-size: 13px; color: #475569; margin-bottom: 6px;">
+          Nhấn <code>Ctrl+V</code> vào khung dưới (các cột cách nhau bởi Tab hoặc dấu phẩy):
+        </p>
+        <textarea id="direct-paste-textarea" style="width: 100%; height: 160px; font-family: monospace; font-size: 12px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;" placeholder="00109988	00MAT0012	3001	00B001	45	BOX-01	RACK-A1"></textarea>
+        <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between;">
+          <label style="font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="direct-paste-allow-dup"> Cho phép dán trùng (mặc định tắt: chống dán trùng trên DB)
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-secondary" onclick="closeDirectPasteModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="submitDirectPaste()">📥 Nhập vào Chờ CF</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="bbbg-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">📄 Lập Biên bản Bàn giao (BBBG V2.2.14)</h3>
+        <button class="btn btn-outline" onclick="closeBbbgModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Số đơn pick:</label>
+          <input type="text" id="bbbg-pick-no" readonly style="width: 100%; padding: 6px 10px; background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Người bàn giao (ký giao):</label>
+          <input type="text" id="bbbg-sender" placeholder="Người giao thực tế" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Người nhận hàng (ký nhận):</label>
+          <input type="text" id="bbbg-receiver" placeholder="Người nhận thực tế" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Vị trí để hàng / Storage Bin:</label>
+          <input type="text" id="bbbg-bin" placeholder="Vị trí bàn giao" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+        </div>
+        <div style="font-size: 12px; color: #059669; font-weight: 500;">
+          Xuất file BBBG theo mẫu. Đối soát MB51/VL06I trước khi dùng phiếu chính thức; GOS, email và in cần kiểm chứng riêng.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeBbbgModal()">Hủy</button>
+        <button class="btn btn-success" onclick="submitCreateBbbg()">Xuất file BBBG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Chi tiết mã ma trận (Drilldown) -->
+  <div class="modal-overlay" id="matrix-drilldown-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 850px; width: 90%;">
+      <div class="modal-header">
+        <h3 class="modal-title">📋 Chi tiết danh sách mã tồn kho — <span id="modal-matrix-filter-title"></span></h3>
+        <button class="btn btn-outline" onclick="closeMatrixDrilldownModal()" style="padding:2px 8px;">✕</button>
+      </div>
+      <div class="modal-body" style="max-height: 420px; overflow-y: auto;">
+        <table class="pick-table" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Mã hàng</th>
+              <th>Model</th>
+              <th>US</th>
+              <th>Line 3003</th>
+              <th>Kho 1003</th>
+              <th>Tổng Body</th>
+              <th>DOH (XE)</th>
+              <th>Dải tồn</th>
+            </tr>
+          </thead>
+          <tbody id="matrix-drilldown-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeMatrixDrilldownModal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zero-Port Data Bridge & JavaScript Grid Engine -->
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+  <script src="./excel_grid.js"></script>
+  <script src="./pilot_sources.js"></script>
+</body>
+</html>

@@ -12,5 +12,9 @@ data/temp_test/
 logs/
 *.log
 
-# Backups
+# Backups & temp files
 backups/
+scratch_inspect.py
+build_web_index.py
+data/bbbg_exports/
+dist/
