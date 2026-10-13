@@ -1,6 +1,23 @@
 # MA CONTROL & OB TOOL RELEASES
 
-> 🚀 **Mới nhất (13/10/2026):** Đã hoàn tất và tích hợp dự án **MA CONTROL — Điều Hành FG Webapp** (Python + FastAPI + Excel-like UI) tại thư mục [`projects/ma-control/`](projects/ma-control/). Hợp nhất toàn diện bộ 3 công cụ: Stock FG V3.6, OB Tool RC52 và BBBG FG V2.2.14 với 141 bài kiểm thử tự động đạt 100% PASS. Xem chi tiết tại [Hướng dẫn MA Control FG](projects/ma-control/README.md).
+> 🚀 **Mới nhất (13/10/2026):** Đã hoàn tất và phát hành dự án **MA CONTROL — Điều Hành FG Webapp** (Python + FastAPI + Excel-like UI). Hợp nhất toàn diện bộ 3 công cụ: Stock FG V3.6, OB Tool RC52 và BBBG FG V2.2.14 với **141 bài kiểm thử tự động đạt 100% PASS**.
+
+---
+
+## 📥 Tải Về Trực Tiếp Cho Máy Công Ty (Zip Packages)
+
+Đối với máy tính công ty bị chặn cài đặt phần mềm hoặc chặn môi trường dev, bạn có thể tải trực tiếp file `.zip` đã đóng gói sẵn:
+
+| Tên gói tải về | Dung lượng | Mô tả & Cách sử dụng | Tải về trực tiếp |
+| :--- | :--- | :--- | :--- |
+| **`MA_CONTROL_FG_PORTABLE_WINDOWS_X64_v1.0.0.zip`** | **38.8 MB** | **Bản Portable Windows x64 chạy ngay offline**: Đã tích hợp sẵn Python 3.12 Standalone Runtime, FastAPI, Uvicorn, OpenPyXL, PyTest. **Không cần cài Python, không cần pip**. Giải nén xong nhấp đúp `START_MA_CONTROL.cmd` là chạy ngay! | [👉 Tải bản Portable](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_PORTABLE_WINDOWS_X64_v1.0.0.zip) |
+| **`MA_CONTROL_FG_V1_0_0_HANDOFF.zip`** | **2.6 MB** | **Gói Handoff mã nguồn nhẹ**: Chứa toàn bộ source code `app/`, 141 bài test `tests/`, tài liệu `docs/`, và script khởi chạy. Dành cho máy đã có sẵn môi trường Python. | [👉 Tải mã nguồn nhẹ](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_V1_0_0_HANDOFF.zip) |
+
+### ⚡ Hướng dẫn sử dụng trên máy công ty:
+1. Tải file **`MA_CONTROL_FG_PORTABLE_WINDOWS_X64_v1.0.0.zip`**.
+2. Chuột phải chọn **Extract All... (Giải nén)** vào một thư mục bất kỳ (ví dụ `D:\MA_Control` hoặc Desktop).
+3. Nhấp đúp chuột vào file **`START_MA_CONTROL.cmd`**.
+4. Ứng dụng sẽ tự động khởi động server và mở trình duyệt web tại `http://127.0.0.1:8012`!
 
 ---
 
