@@ -1,53 +1,34 @@
-# MA CONTROL & OB TOOL RELEASES
+# OB TOOL V1 RC56
 
-> 🚀 **Mới nhất (13/10/2026):** Đã hoàn tất và phát hành dự án **MA CONTROL — Điều Hành FG Webapp** (Python + FastAPI + Excel-like UI). Hợp nhất toàn diện bộ 3 công cụ: Stock FG V3.6, OB Tool RC52 và BBBG FG V2.2.14 với **141 bài kiểm thử tự động đạt 100% PASS**.
+Canonical XLSM: `261010_OB_TOOL_V1_RC56.xlsm`  
+Canonical SHA256: `4B09DCCA751E62D7E7E57A6638E79F4DC744AD80A47A815E0F9658735F64EBE2`  
+Handoff Archive: `RC56_HANDOFF.zip`  
+Archive SHA256: `3A29952001E62B7B277FF07C85868FC96E693ACFE01F9719E2AE1121769585FE`
 
----
-
-## 📥 Tải Về Trực Tiếp Cho Máy Công Ty (Zip Packages — 100% Zero-Port & Offline)
-
-Đối với máy tính công ty bị chặn cài đặt phần mềm, không có quyền Admin, không có sẵn Python hoặc bị firewall chặn các cổng mạng nội bộ (TCP/UDP socket), bạn có thể tải trực tiếp file `.zip` đã đóng gói độc lập toàn diện:
-
-| Tên gói tải về | Dung lượng | Mô tả & Cách sử dụng | Tải về trực tiếp |
-| :--- | :--- | :--- | :--- |
-| **`MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip`** ⭐ *(Khuyên dùng)* | **38.8 MB** | **Bản Portable Zero-Port chạy ngay offline**: Đã tích hợp sẵn Python 3.12 Standalone Runtime x64 nội bộ, Edge App Mode, hoàn toàn **KHÔNG mở cổng mạng (Zero-Port)**, vượt qua mọi tường lửa cty. **Không cần cài Python, không cần Admin rights**. Giải nén xong nhấp đúp `launcher.cmd` là mở ngay giao diện điều hành! | [👉 Tải bản Portable Zero-Port](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip) |
-| **`MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip`** | **38.8 MB** | Bản Portable Zero-Port đồng bộ (đã đính kèm đầy đủ `runtime/python.exe`). Nhấp đúp `launcher.cmd`. | [👉 Tải bản Zero-Port v1.0.0](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip) |
-| **`MA_CONTROL_FG_V1_0_0_HANDOFF.zip`** | **2.6 MB** | Gói Handoff mã nguồn nhẹ: Chứa toàn bộ source code `app/`, 147 bài test `tests/`, tài liệu `docs/`, và script khởi chạy. Dành cho máy đã có sẵn môi trường Python. | [👉 Tải mã nguồn nhẹ](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_V1_0_0_HANDOFF.zip) |
-
-### ⚡ Hướng dẫn sử dụng 1-Click trên máy công ty:
-1. Tải file **`MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip`** (hoặc `MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip`).
-2. Chuột phải chọn **Extract All... (Giải nén)** vào một thư mục bất kỳ (ví dụ Desktop hoặc `D:\MA_Control`).
-3. Nhấp đúp chuột vào file **`launcher.cmd`**.
-4. Ứng dụng sẽ tự động kích hoạt **Microsoft Edge App Mode** độc lập ngoại tuyến (Zero-Port) hiển thị bảng tính điều hành FG kiểu Excel. Không mở port mạng, không lo bị chặn!
-
----
-
-## 📦 Bản phát hành Excel Macro: OB TOOL V1 RC52
-
-Canonical XLSM: `261010_OB_TOOL_V1_RC52.xlsm`  
-Canonical SHA256: `C506832470E005CFF848A2F9319FA9266DC3136B0F5D2683053DFD1025B99979`  
-Handoff Archive: `RC52_HANDOFF.zip`  
-Archive SHA256: `FE8D927A5DA88E13122159DCA2FCDFB99CFF60F5BB1EDA3789C6460449ED28E8`
-
-## Key Improvements in RC52
-- **P0 — Triển khai hàm xóa Draft 3001 theo đúng `deleteob.vbs` (`ModuleSAP.bas`)**:
-  - Mở `VL02N`, điền số OB và gõ `Enter` (`sendVKey 0`).
-  - Thao tác trực tiếp theo đúng bản ghi: bấm nút Xóa `wnd[0]/tbar[1]/btn[14]`, nhấn xác nhận popup `wnd[1]/usr/btnSPOP-OPTION1`.
-  - Hậu kiểm live: Mở lại tra số OB trong `VL02N` để xác nhận thông báo `does not exist`/không còn tồn tại trên SAP trước khi công nhận xóa thành công.
-  - Phân định rõ ràng các trạng thái trả về: `DELETE_VERIFIED`, `WAIT_OB_LOCK`, `WAIT_STO_LOCK`, `DELETE_FAILED`.
-- **P0 — Khôi phục chạy tiếp khi OB sinh thiếu đã bị xóa (`ModuleMain.bas`)**:
-  - Khi phát hiện receipt tồn tại trong `VL10D_DIRECT_DONE_<mat>` nhưng `capacity = 0`: Xác nhận trạng thái `OB_DELETED_CONFIRMED`.
-  - Vô hiệu hóa receipt cũ (`VL10D_DIRECT_DONE_<mat> = ""`), ghi log `OB_DELETED_REPLAN`.
-  - Không ném lỗi `OB_ALREADY_CREATED_WAIT` nữa; lập lại kế hoạch cho toàn bộ số lượng thực tế cần tạo theo nguồn live (`missing = need`, ví dụ cần 200 tạo 102 bị xóa thì lập lại 200 pcs).
-- **P0 — Tách biệt lỗi Khóa STO (`WAIT_STO_LOCK`)**:
-  - Nhận diện chính xác thông báo `Purchase order ... is currently being processed by ...`.
-  - Định danh trạng thái `WAIT_STO_LOCK`, tuyệt đối không gọi xóa draft 3001 vì đây là lỗi do người khác mở, không phải do thiếu tồn ATP.
-- **P1 — Tối ưu hóa tốc độ chuẩn bị VL10D trước Background (`ModuleSAP.bas`)**:
-  - Staging theo trang trong `EDCStageGroup`: Gom nhóm các vật tư cần thao tác theo từng trang hiển thị, chỉ cuộn tới mỗi trang một lần, điền số lượng và tick chọn toàn bộ các dòng trên trang đó rồi mới chuyển tiếp.
-  - Loại bỏ lệnh gọi `EDCStageGroup False` lặp lại dư thừa ngay trước khi bấm Create Delivery trong `EDC4007_CreateGroup`.
-  - Bổ sung log đo thời gian thực tế `VL10D_TIMING`.
-- **P3 — Loại bỏ hoàn toàn Popup trong `EDCExistingCapacity` (`ModuleMain.bas`)**:
-  - Loại bỏ hoàn toàn các hộp thoại `Application.InputBox` và `MsgBox` khi phát hiện vật tư có OB thuộc nhiều STO khác nhau; tự động ưu tiên STO chủ đạo (`mEDCDominantSTO`) hoặc STO có sức chứa lớn nhất.
+## Key Improvements in RC56
+- **P0 — Vá lỗi Schema Deserializer `VL10D_PENDING_KEY` 6 trường (`ModuleMain.bas`)**:
+  - Khi tạo OB theo nhóm, lưu 6 trường (`Request | Material | Qty | STO | Item | Timestamp`).
+  - Sửa `EDCResolvePendingGroup` và `EDCResolvePendingCreate` chấp nhận `UBound(parts) >= 4` thay vì bắt buộc `= 4`.
+  - Không ném lỗi `Invalid pending item identity` và không bao giờ xóa nhầm pending key trên lỗi đọc tạm thời.
+- **P0 — Bảo toàn Pending Key trong quy trình `AUTO_RETRY_VL10D` (`ModuleMain.bas`)**:
+  - Không xóa pending key trong `EDCCommitGroup` khi vẫn còn deficits cần tạo bù.
+  - Thiết lập lại đầy đủ `VL10D_GROUP_PENDING` và `VL10D_PENDING_KEY` trước khi chạy Background Create cho `retryPlans`.
+  - Thêm cơ chế fallback xác định STO/Request trong `EDCVerifyGroup`, loại bỏ vĩnh viễn lỗi `GROUP_RECEIPT_MISSING: pending identity invalid`.
+- **P0 — Bổ sung Nhánh Xử lý Tạo 1 Nửa STO & Tự Động Xóa OB Thiếu (`ModuleMain.bas`)**:
+  - Khi VL10D chỉ tạo được 1 phần số lượng STO và nhánh 3001 không giữ tồn hoặc không thể sinh thêm để đạt nguyên batch:
+  - Tự động gọi `SAPX_DeleteDraftOB` per `deleteob.vbs` để xóa bỏ OB dở dang ("xóa tạo bừa đó"), khôi phục lại Due về STO.
+  - Loại bỏ mã khỏi danh sách `verifiedPlans`, ghi log `VL10D_PARTIAL_OB_CLEANUP` và cập nhật ghi chú rõ ràng trên sheet INPUT.
+- **P1 — Gỡ bỏ Bẫy `PRESAVE_GATE_FAIL: EXTRA_ITEM` trong VL02N (`ModuleSAP.bas`)**:
+  - Khi OB có nhiều line item từ STO (ví dụ items 10, 20, 30, 40) mà lượt chạy chỉ phân bổ cho 10, 30, 40 (item 20 chưa có kế hoạch):
+  - Chuyển `EXTRA_ITEM` sang log thông tin `PRESAVE_EXTRA_ITEM_INFO`, không chặn đứng việc lưu chứng từ; kiểm tra nghiêm ngặt 100% tất cả các item có trong kế hoạch `itemMap`.
+  - Tương tự trong `SavedSnapshotMatchesPlan`, cho phép lưu khi tồn tại item chưa có kế hoạch trên overview.
+- **P1 — Khắc phục Lỗi Đọc `TableField` trong VL02N (`ModuleSAP.bas`)**:
+  - Trả về `Nothing` an toàn thay vì ném lỗi `Thieu field ... row 3. Can MAP layout VL02N.`.
+  - `OverviewSnapshot` kết thúc vòng lặp an toàn khi gặp `Nothing`.
+- **P1 — Đối Chiếu An Toàn Draft 3001 & Mở Rộng Phạm Vi Ngày Planned GI (`ModuleSAP.bas`, `ModuleMain.bas`)**:
+  - Đối soát chính xác theo người tạo (`currentUser` ERNAM) và STO tham chiếu (`targetSTO` VGBEL). Ưu tiên tuyệt đối draft do chính user tạo ra.
+  - Mở rộng `IT_WADAT-HIGH` từ `Date` thành `DateAdd("d", 60, Date)` để bao quát cả các OB có Planned GI trong tương lai.
+  - `EDCPlanOne`: Ưu tiên chọn STO có Due đáp ứng trọn vẹn nguyên batch trước khi chọn theo STO chủ đạo. Không bỏ dở lập kế hoạch khi `missing > 0`.
 - **Biên dịch & Bảo toàn Hệ thống**:
   - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
   - Gắn macro nút bấm chuẩn xác (`INPUT!OBV1__0` -> `OB_Check`, `INPUT!OBV1__1` -> `OB_Execute`).
@@ -61,20 +42,24 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC52 (13/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC56 (14/10/2026)
 
-### 📦 Các tệp đính kèm RC52
+### 📦 Các tệp đính kèm RC56
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC52_HANDOFF.zip`** | 705,229 bytes | `FE8D927A5DA88E13122159DCA2FCDFB99CFF60F5BB1EDA3789C6460449ED28E8` | **Gói bàn giao đầy đủ RC52 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC52.xlsm`** | 752,935 bytes | `C506832470E005CFF848A2F9319FA9266DC3136B0F5D2683053DFD1025B99979` | Tệp Excel Macro phát hành RC52 (Đã tối ưu & Compile) |
-| **`VBA_RC51_TO_RC52.diff`** | 19,745 bytes | `830B5C7A1AD3C3311365A2FA4CBA5B455C5CA387028B6773046C84B9DAC9DB5A` | Chi tiết bản vá mã nguồn VBA từ RC51 lên RC52 |
-| **`CHANGELOG_RC51_TO_RC52.md`** | 5,375 bytes | `B6482C6DAD08CE1EC515634EBBED1EE26C9636C91C0631B50D6A262F167DFAAB` | Nhật ký thay đổi và giải pháp kỹ thuật RC52 |
+| **`RC56_HANDOFF.zip`** | 849,458 bytes | `3A29952001E62B7B277FF07C85868FC96E693ACFE01F9719E2AE1121769585FE` | **Gói bàn giao đầy đủ RC56 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC56.xlsm`** | 793,292 bytes | `4B09DCCA751E62D7E7E57A6638E79F4DC744AD80A47A815E0F9658735F64EBE2` | Tệp Excel Macro phát hành RC56 (Đã tối ưu & Compile) |
+| **`VBA_RC55_TO_RC56.diff`** | 654,054 bytes | `DAB5C0117FA48330DDA8740D535595992A3EC94779AD6B960C0FAED7D522040A` | Chi tiết bản vá mã nguồn VBA từ RC55 lên RC56 |
+| **`CHANGELOG_RC55_TO_RC56.md`** | 7,526 bytes | `7A746BCF0BCE4D651A469D4CC62F961D0875C10EE26FBF99DC1B456C7E2C82C8` | Nhật ký thay đổi và giải pháp kỹ thuật RC56 |
 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
+
+### OB Tool V1 RC52 (13/10/2026)
+* **`RC52_HANDOFF.zip`**: SHA-256 `60155252EB31DC512FBD58804ACF827CFE3F40E7D2E6872BC6779AE613FBCF0F`
+* **`261010_OB_TOOL_V1_RC52.xlsm`**: SHA-256 `87F072D409DFD86144DE91E3477142426992D252CEEF8EE99AC6E18B3DC14885`
 
 ### OB Tool V1 RC51 (13/10/2026)
 * **`RC51_HANDOFF.zip`**: SHA-256 `DB86E5724A2153D43D50606FB0E456C3D9F101F6DBABFCCEC917DBB7AC9F9B50`
@@ -83,15 +68,3 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 ### OB Tool V1 RC50 (13/10/2026)
 * **`RC50_HANDOFF.zip`**: SHA-256 `7CB1088B32B6ADEC280737F49DCC1CB8130FA997F376AD8D6810E4E860F6BC9E`
 * **`261010_OB_TOOL_V1_RC50.xlsm`**: SHA-256 `545E9C5CAB9C3F0BACC34D53DFF840B3B8C3618853DE72E5760A87D29A7ECAC4`
-
-### OB Tool V1 RC49 (13/10/2026)
-* **`RC49_HANDOFF.zip`**: SHA-256 `BCFFCF5F3D1865EAC3FA770BC78DEBF3B8083884358896EEFEA3AC3DF38E90BC`
-* **`261010_OB_TOOL_V1_RC49.xlsm`**: SHA-256 `A199AB73A70EEE04820C0B9F538ABE7518F39C5FED75569F064E661AA43381F3`
-
-### OB Tool V1 RC48 (13/10/2026)
-* **`RC48_HANDOFF.zip`**: SHA-256 `0C88DDD6DAEAFF234766D4A3DF4D976B319AFF5D545425417F6625D0D7D40AA7`
-* **`261010_OB_TOOL_V1_RC48.xlsm`**: SHA-256 `AC5A70B941DB7D5E49E92ABBBAF033CC9CBE9608C7C40B13ADE82D5070F4AE3C`
-
-### OB Tool V1 RC47 (11/10/2026)
-* **`RC47_HANDOFF.zip`**: SHA-256 `A9F845EC80F4DB7D0C03B78E9E5060964A3559E90A0838BDE2EAD022D002ACA8`
-* **`261010_OB_TOOL_V1_RC47.xlsm`**: SHA-256 `B90CA4209A13806027C2234D32608E2F2C583F76074979BC048C3C450C3604EC`
