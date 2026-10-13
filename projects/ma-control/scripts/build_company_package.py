@@ -72,11 +72,20 @@ def compute_file_sha256(path: Path) -> str:
 def build_company_package():
     print(f"[*] Starting Enterprise COMPANY Package Build for MA CONTROL FG ({VERSION})...")
 
-    # 1. Clean previous release staging
-    if RELEASE_DIR.exists():
-        shutil.rmtree(RELEASE_DIR, ignore_errors=True)
+    # 1. Clean payload staging (preserve runtime if already copied)
+    if PAYLOAD_DIR.exists():
+        shutil.rmtree(PAYLOAD_DIR, ignore_errors=True)
     RELEASE_DIR.mkdir(parents=True, exist_ok=True)
     PAYLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Copy embedded runtime if available
+    runtime_src = REPO_ROOT / "runtime"
+    runtime_dst = RELEASE_DIR / "runtime"
+    if runtime_src.exists() and not (runtime_dst / "python.exe").exists():
+        print(f"[*] Copying embedded Python runtime to {runtime_dst}...")
+        shutil.copytree(runtime_src, runtime_dst, dirs_exist_ok=True)
+    elif (runtime_dst / "python.exe").exists():
+        print(f"[+] Reusing existing embedded Python runtime in {runtime_dst}")
 
     # 2. Collect payload files
     payload_files = {}
@@ -126,31 +135,37 @@ def build_company_package():
         json.dump(manifest, f, indent=2, ensure_ascii=False)
     print(f"[+] Wrote manifest.json with {len(payload_files)} verified files.")
 
-    # 4. Generate portable ZIP archive
-    zip_name = f"MA-Control-FG-{VERSION}-COMPANY-package.zip"
-    zip_path = DIST_DIR / zip_name
-    if zip_path.exists():
-        zip_path.unlink()
+    # 4. Generate portable ZIP archives
+    target_zips = [
+        "MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip",
+        "MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip",
+        "MA-Control-FG-v1.0.0-rc52-COMPANY-package.zip",
+    ]
 
-    print(f"[*] Packaging distribution into {zip_path}...")
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, dirs, files in os.walk(RELEASE_DIR):
-            for file in files:
-                fp = Path(root) / file
-                arcname = fp.relative_to(RELEASE_DIR)
-                zf.write(fp, arcname)
+    primary_zip = None
+    for zip_name in target_zips:
+        zip_path = DIST_DIR / zip_name
+        if zip_path.exists():
+            zip_path.unlink()
 
-    # 5. Compute SHA256 of the ZIP package
-    zip_hash = compute_file_sha256(zip_path)
-    sha_file = DIST_DIR / f"{zip_name}.sha256"
-    with open(sha_file, "w", encoding="utf-8") as f:
-        f.write(f"{zip_hash} *{zip_name}\n")
+        print(f"[*] Packaging distribution into {zip_path}...")
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(RELEASE_DIR):
+                for file in files:
+                    fp = Path(root) / file
+                    arcname = fp.relative_to(RELEASE_DIR)
+                    zf.write(fp, arcname)
 
-    print(f"[SUCCESS] Enterprise Package Built Successfully:")
-    print(f" - Directory: {RELEASE_DIR}")
-    print(f" - Archive: {zip_path} ({zip_path.stat().st_size / (1024*1024):.2f} MB)")
-    print(f" - SHA256: {zip_hash}")
-    return str(zip_path)
+        zip_hash = compute_file_sha256(zip_path)
+        sha_file = DIST_DIR / f"{zip_name}.sha256"
+        with open(sha_file, "w", encoding="utf-8") as f:
+            f.write(f"{zip_hash} *{zip_name}\n")
+
+        print(f"[SUCCESS] Packaged {zip_name} ({zip_path.stat().st_size / (1024*1024):.2f} MB), SHA256: {zip_hash[:16]}...")
+        if primary_zip is None:
+            primary_zip = str(zip_path)
+
+    return primary_zip
 
 
 if __name__ == "__main__":

@@ -4,20 +4,21 @@
 
 ---
 
-## 📥 Tải Về Trực Tiếp Cho Máy Công Ty (Zip Packages)
+## 📥 Tải Về Trực Tiếp Cho Máy Công Ty (Zip Packages — 100% Zero-Port & Offline)
 
-Đối với máy tính công ty bị chặn cài đặt phần mềm hoặc chặn môi trường dev, bạn có thể tải trực tiếp file `.zip` đã đóng gói sẵn:
+Đối với máy tính công ty bị chặn cài đặt phần mềm, không có quyền Admin, không có sẵn Python hoặc bị firewall chặn các cổng mạng nội bộ (TCP/UDP socket), bạn có thể tải trực tiếp file `.zip` đã đóng gói độc lập toàn diện:
 
 | Tên gói tải về | Dung lượng | Mô tả & Cách sử dụng | Tải về trực tiếp |
 | :--- | :--- | :--- | :--- |
-| **`MA_CONTROL_FG_PORTABLE_WINDOWS_X64_v1.0.0.zip`** | **38.8 MB** | **Bản Portable Windows x64 chạy ngay offline**: Đã tích hợp sẵn Python 3.12 Standalone Runtime, FastAPI, Uvicorn, OpenPyXL, PyTest. **Không cần cài Python, không cần pip**. Giải nén xong nhấp đúp `START_MA_CONTROL.cmd` là chạy ngay! | [👉 Tải bản Portable](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_PORTABLE_WINDOWS_X64_v1.0.0.zip) |
-| **`MA_CONTROL_FG_V1_0_0_HANDOFF.zip`** | **2.6 MB** | **Gói Handoff mã nguồn nhẹ**: Chứa toàn bộ source code `app/`, 141 bài test `tests/`, tài liệu `docs/`, và script khởi chạy. Dành cho máy đã có sẵn môi trường Python. | [👉 Tải mã nguồn nhẹ](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_V1_0_0_HANDOFF.zip) |
+| **`MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip`** ⭐ *(Khuyên dùng)* | **38.8 MB** | **Bản Portable Zero-Port chạy ngay offline**: Đã tích hợp sẵn Python 3.12 Standalone Runtime x64 nội bộ, Edge App Mode, hoàn toàn **KHÔNG mở cổng mạng (Zero-Port)**, vượt qua mọi tường lửa cty. **Không cần cài Python, không cần Admin rights**. Giải nén xong nhấp đúp `launcher.cmd` là mở ngay giao diện điều hành! | [👉 Tải bản Portable Zero-Port](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip) |
+| **`MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip`** | **38.8 MB** | Bản Portable Zero-Port đồng bộ (đã đính kèm đầy đủ `runtime/python.exe`). Nhấp đúp `launcher.cmd`. | [👉 Tải bản Zero-Port v1.0.0](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip) |
+| **`MA_CONTROL_FG_V1_0_0_HANDOFF.zip`** | **2.6 MB** | Gói Handoff mã nguồn nhẹ: Chứa toàn bộ source code `app/`, 147 bài test `tests/`, tài liệu `docs/`, và script khởi chạy. Dành cho máy đã có sẵn môi trường Python. | [👉 Tải mã nguồn nhẹ](https://github.com/taikthp357-ctrl/ob-tool-rc35/raw/main/MA_CONTROL_FG_V1_0_0_HANDOFF.zip) |
 
-### ⚡ Hướng dẫn sử dụng trên máy công ty:
-1. Tải file **`MA_CONTROL_FG_PORTABLE_WINDOWS_X64_v1.0.0.zip`**.
-2. Chuột phải chọn **Extract All... (Giải nén)** vào một thư mục bất kỳ (ví dụ `D:\MA_Control` hoặc Desktop).
-3. Nhấp đúp chuột vào file **`START_MA_CONTROL.cmd`**.
-4. Ứng dụng sẽ tự động khởi động server và mở trình duyệt web tại `http://127.0.0.1:8012`!
+### ⚡ Hướng dẫn sử dụng 1-Click trên máy công ty:
+1. Tải file **`MA_CONTROL_FG_PORTABLE_ZERO_PORT_v1.1.0.zip`** (hoặc `MA_CONTROL_FG_ZERO_PORT_V1_0_0.zip`).
+2. Chuột phải chọn **Extract All... (Giải nén)** vào một thư mục bất kỳ (ví dụ Desktop hoặc `D:\MA_Control`).
+3. Nhấp đúp chuột vào file **`launcher.cmd`**.
+4. Ứng dụng sẽ tự động kích hoạt **Microsoft Edge App Mode** độc lập ngoại tuyến (Zero-Port) hiển thị bảng tính điều hành FG kiểu Excel. Không mở port mạng, không lo bị chặn!
 
 ---
 
