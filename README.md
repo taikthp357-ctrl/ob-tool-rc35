@@ -1,33 +1,29 @@
-# OB TOOL V1 RC56
+# OB TOOL V1 RC57
 
-Canonical XLSM: `261010_OB_TOOL_V1_RC56.xlsm`  
-Canonical SHA256: `D1C86081F039C5D74217A5264636E26F17D382C1650815BCB1508BAD55A64763`  
-Handoff Archive: `RC56_HANDOFF.zip`  
-Archive SHA256: `CEA7721B2400397884E3026629E1B53EBF21705149F2FAEAD81A15D2FCA6087E`
+Canonical XLSM: `261010_OB_TOOL_V1_RC57.xlsm`  
+Canonical SHA256: `FCBB9AB80DD612D0C03CBBD2F503253EAEDF1EC123E06F6DEEFDAD9D69FC1C99`  
+Handoff Archive: `RC57_HANDOFF.zip`  
+Archive SHA256: `A098F2C8E96713F3FD316E030D5A45CDBEC95800FA0F9C8970A3E98F78287A72`
 
-## Key Improvements in RC56
-- **P0 — Vá lỗi Schema Deserializer `VL10D_PENDING_KEY` 6 trường (`ModuleMain.bas`)**:
-  - Chuẩn hóa schema pending key 6 trường: `Request | Material | Qty | STO | Item | Timestamp`.
-  - Nâng cấp `EDCResolvePendingCreate` và `EDCResolvePendingGroup` (`UBound(parts) >= 4`) chấp nhận cả định dạng 5 trường cũ và 6 trường mới.
-  - Bảo vệ pending key trong khối `Waiting:` không bị xóa nhầm do lỗi giao diện SAP tạm thời.
-- **P0 — Bảo toàn Pending Key trong quy trình `AUTO_RETRY_VL10D` (`ModuleMain.bas`)**:
-  - `EDCCommitGroup` hỗ trợ `keepPendingKey = True` khi có đợt retry sắp chạy, ngăn chặn việc xóa pending sớm.
-  - Tái tạo trạng thái `VL10D_GROUP_PENDING` và `VL10D_PENDING_KEY` cho các mã thiếu trước khi gọi SAP Create trong retry.
-  - Cơ chế fallback nhận diện STO/Request từ danh sách `plans` trong `EDCVerifyGroup` chống lỗi `GROUP_RECEIPT_MISSING`.
-- **P0 — Nhánh Xử Lý Tạo 1 Nửa STO & Tự Động Xóa OB Thiếu (`ModuleMain.bas`)**:
-  - Khi VL10D chỉ tạo được một phần số lượng và nhánh 3001 không giữ tồn hoặc retry không thể tạo thêm:
-  - Tự động kiểm tra nếu OB chỉ chứa mã bị thiếu (hoặc không chứa mã khác đã hoàn thành đủ), gọi `ModuleSAP.SAPX_DeleteDraftOB` per `deleteob.vbs` để xóa OB dở dang và hoàn trả Due về STO.
-  - Cập nhật ghi chú trên INPUT: `DA XOA OB THIEU (TAO .../... PCS): HET TON & 3001 KO GIU TON; TRA LAI STO DUE`.
-- **P1 — Gỡ bỏ bẫy `PRESAVE_GATE_FAIL: EXTRA_ITEM` trong VL02N (`ModuleSAP.bas`)**:
-  - Trong `VerifyDeliveryPlan` và `SavedSnapshotMatchesPlan`: Cho phép lưu OB khi trên chứng từ có item khác chưa có kế hoạch trong lượt chạy hiện tại; ghi log `PRESAVE_EXTRA_ITEM_INFO` thay vì chặn lưu.
-- **P1 — Khắc phục lỗi đọc `TableField` trong VL02N (`ModuleSAP.bas`)**:
-  - `TableField` trả về `Nothing` an toàn khi đọc tràn dòng thay vì ném Runtime Error 4205.
-  - `OverviewSnapshot` và `VisibleItemRow` kiểm tra `fld Is Nothing` an toàn, ngăn ngừa hoàn toàn Runtime Error 91 và 4205.
-- **P1 — Đối chiếu an toàn Draft 3001 & Mở rộng phạm vi ngày Planned GI (`ModuleSAP.bas`, `ModuleMain.bas`)**:
-  - `SAPX_FindAndReleaseDraft3001OB` đọc cột STO và Creator; tính điểm ưu tiên xóa đúng chứng từ do người dùng hiện tại tạo (+1000) và đúng STO mục tiêu (+500).
-  - Mở rộng `IT_WADAT-HIGH` trong VL06O thành `DateAdd("d", 60, Date)` (+60 ngày).
-  - `EDCPlanOne` ưu tiên chọn STO có Due đáp ứng trọn vẹn nguyên batch (`EDCWholeBatchFitQty > 0`); tiếp tục lập kế hoạch cho phần thiếu khi STO có thêm Due.
-  - `PrepareStock` đồng bộ kiểm tra loại kho qua `POST_ALLOWED_STOCK_TYPES`.
+## Key Improvements in RC57
+- **P0 — Cơ chế Checkpoint State Machine (`ModuleMain.bas`)**:
+  - Giữ nguyên trạng thái các mã đã tạo thành công (`VERIFIED_FULL`), khóa ghi chú cột D sheet `INPUT`, loại trừ hoàn toàn khỏi danh sách tạo mới của VL10D.
+  - Chỉ tính toán số lượng bù cho các mã thiếu (`Deficit > 0`): $Need_{bù} = TotalNeed - CreatedQty$.
+  - Khi người dùng sửa dữ liệu (`Fingerprint(False) != saved`), tự động Clean Reset 100%: xóa sạch toàn bộ cấu hình checkpoint cũ (`VL10D_DIRECT_DONE_*`, `VL10D_PENDING_KEY`, `VL10D_GROUP_OB_RECEIPTS`), xóa trắng `INPUT!D6:D205` và `INPUT!F6:N505`, sinh `NEW_REQUEST`.
+- **P0 — Item-Level Delete trên VL02N cho Chứng Từ Đa Mã (`ModuleSAP.bas`)**:
+  - Sửa đổi hàm `SAPX_DeleteDraftOB`: Khi chứng từ OB có từ 2 item trở lên (`OverviewSnapshot.count >= 2`), tuyệt đối không bấm `btn[14]` xóa cả chứng từ.
+  - Định vị chính xác dòng tuyệt đối chứa mã thiếu, chọn dòng và gọi lệnh Menu `Edit -> Delete Item` (`Shift+F2`), xác nhận popup và bấm Save `btn[11]`. Bảo toàn 100% các dòng mã đã đủ.
+  - Chỉ xóa cả chứng từ qua Toolbar `btn[14]` khi OB chỉ có đúng 1 item.
+- **P0 — Gom Batch Xóa Draft 3001 & Quét Nhả Tồn Chủ Động Khi Due = 0 (`ModuleSAP.bas`, `ModuleMain.bas`)**:
+  - Gom toàn bộ danh sách mã thiếu vào 1 lần mở `VL06O` duy nhất qua `SAPX_FindAndReleaseDraft3001OB_Batch`.
+  - Nhập danh sách mã vào Multiple Selection của `MATNR`, quét ALV 1 lượt, sang `VL02N` xóa tuần tự và đợi 2s đồng bộ ATP kho 1 lần duy nhất sau khi hoàn tất toàn bộ batch.
+  - Kích hoạt chủ động trong `EDCPlanOne`: Nếu phát hiện STO Due = 0 hoặc tổng Due < Need do nhánh 3001 chiếm giữ, tự động tìm và xóa draft 3001 ngay tại bước lập kế hoạch, sau đó làm mới Due list để tiếp tục tạo VL10D.
+- **P1 — Tối ưu VL10D - Loại bỏ mở lặp 2 lần & Tận dụng F8 Refresh tại chỗ (`ModuleSAP.bas`)**:
+  - Tái sử dụng màn hình Due List từ Lần 1 khi đã mở danh sách với các STO (`canReuseScreen = True`), không thoát ra gõ lại `/nVL10D`.
+  - Bổ sung hàm `EDC4007_RefreshDueList` gửi lệnh F8 Refresh (`btn[8]`) trực tiếp trên thanh công cụ của bảng Due List khi cần cập nhật số lượng Due.
+- **P1 — Phòng vệ đa tầng chống văng lỗi Runtime & Bảo toàn Pending Key (`ModuleMain.bas`)**:
+  - Trong `EDCVerifyGroup`, cơ chế chờ mềm (retry đọc lại VL06O sau 2s) và tuyệt đối không gọi `Err.Raise` làm sập luồng sang khối `Failed:` khi chưa thấy receipt, cho phép nhánh xóa 3001 tiếp tục chạy khép kín vòng lặp.
+  - Bảo toàn `VL10D_PENDING_KEY` trong `EDCCommitGroup` khi còn kế hoạch `AUTO_RETRY_VL10D`.
 - **Biên dịch & Bảo toàn Hệ thống**:
   - Native VBA Debug Compile PASS 100% (`compile_enabled_before = True`, `compile_enabled_after = False`).
   - Gắn macro nút bấm chuẩn xác (`INPUT!OBV1__0` -> `OB_Check`, `INPUT!OBV1__1` -> `OB_Execute`).
@@ -41,24 +37,24 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ---
 
-## 🌟 Bản phát hành mới nhất: OB Tool V1 RC56 (14/10/2026)
+## 🌟 Bản phát hành mới nhất: OB Tool V1 RC57 (14/10/2026)
 
-### 📦 Các tệp đính kèm RC56
+### 📦 Các tệp đính kèm RC57
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`RC56_HANDOFF.zip`** | 731,787 bytes | `CEA7721B2400397884E3026629E1B53EBF21705149F2FAEAD81A15D2FCA6087E` | **Gói bàn giao đầy đủ RC56 (All-in-one)** |
-| **`261010_OB_TOOL_V1_RC56.xlsm`** | 795,201 bytes | `D1C86081F039C5D74217A5264636E26F17D382C1650815BCB1508BAD55A64763` | Tệp Excel Macro phát hành RC56 (Đã tối ưu & Compile) |
-| **`VBA_RC55_TO_RC56.diff`** | 28,628 bytes | `B814343F783336357C07E618CEFED573DC64BCFBF9DC8B580A6FA41AB6117C10` | Chi tiết bản vá mã nguồn VBA từ RC55 lên RC56 |
-| **`CHANGELOG_RC55_TO_RC56.md`** | 7,550 bytes | `CFCD2632BD7F1F2391AD5A65029A9349D4B99348B4520A4FCAD848791244D3FB` | Nhật ký thay đổi và giải pháp kỹ thuật RC56 |
+| **`RC57_HANDOFF.zip`** | 747,492 bytes | `A098F2C8E96713F3FD316E030D5A45CDBEC95800FA0F9C8970A3E98F78287A72` | **Gói bàn giao đầy đủ RC57 (All-in-one)** |
+| **`261010_OB_TOOL_V1_RC57.xlsm`** | 794,892 bytes | `FCBB9AB80DD612D0C03CBBD2F503253EAEDF1EC123E06F6DEEFDAD9D69FC1C99` | Tệp Excel Macro phát hành RC57 (Đã tối ưu & Compile) |
+| **`VBA_RC56_TO_RC57.diff`** | 35,969 bytes | `6A71333A3C67E57983AB4B0EA3C2C0C98B153B7EE3B86CEAE74F3FCFAFE1AD0E` | Chi tiết bản vá mã nguồn VBA từ RC56 lên RC57 |
+| **`CHANGELOG_RC56_TO_RC57.md`** | 9,260 bytes | `3B12E33F735EAD44C577EAA14F577485FC673A6BF4602DB7FA6BBBE63EBE38BD` | Nhật ký thay đổi và giải pháp kỹ thuật RC57 |
 
 ---
 
 ## 📜 Lịch sử bản phát hành trước đó
 
+### OB Tool V1 RC56 (14/10/2026)
+* **`RC56_HANDOFF.zip`**: SHA-256 `68407EB7CECE7C312DA446C86FAAA8BCF3C474D90C5AC57E94B34C4806A329F5`
+* **`261010_OB_TOOL_V1_RC56.xlsm`**: SHA-256 `D1C86081F039C5D74217A5264636E26F17D382C1650815BCB1508BAD55A64763`
+
 ### OB Tool V1 RC55 (14/10/2026)
 * **`261010_OB_TOOL_V1_RC55.xlsm`**: SHA-256 `547A36809C42263FCA5050C6CA162E089A0C3B77D0A4729FF3A5EEE2300C99AF`
-
-### OB Tool V1 RC52 (13/10/2026)
-* **`RC52_HANDOFF.zip`**: SHA-256 `E6FA4A895F2CE2C281F2AECA11FA4137F2F3B6CA27C3BA7E7DDE6D17EB73C27C`
-* **`261010_OB_TOOL_V1_RC52.xlsm`**: SHA-256 `C506832470E005CFF848A2F9319FA9266DC3136B0F5D2683053DFD1025B99979`

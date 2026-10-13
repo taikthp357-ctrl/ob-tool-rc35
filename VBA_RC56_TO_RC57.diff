@@ -1,0 +1,772 @@
+--- RC56/ModuleMain.bas
++++ RC57/ModuleMain.bas
+@@ -171,6 +171,45 @@
+ 
+ End Sub
+ 
++Private Sub ClearConfigPrefix(ByVal prefix As String)
++Dim ws As Worksheet, r As Long
++Set ws = ThisWorkbook.Worksheets("CONFIG")
++For r = 2 To ws.Cells(ws.rows.count, 1).End(xlUp).row
++ If Left$(CStr(ws.Cells(r, 1).Value2), Len(prefix)) = prefix Then
++  ws.Cells(r, 2).Value2 = ""
++ End If
++Next r
++End Sub
++
++Private Sub EDCReconcileInputNotes(ByVal scope As String)
++Dim ws As Worksheet, r As Long, mat As String, need As Double, cap As Double
++Set ws = ThisWorkbook.Worksheets("INPUT")
++For r = 6 To 205
++ mat = Trim$(CStr(ws.Cells(r, 1).Value2))
++ If mat <> "" Then
++  need = EDCRequestQty(mat)
++  If need > 0 Then
++   cap = EDCExistingCapacity(mat, scope)
++   If cap >= need Then
++    ' VERIFIED_FULL: Bao toan ghi chu cot D, khoa trang thai
++    If InStr(1, CStr(ws.Cells(r, 4).Value2), "DONE", vbTextCompare) = 0 And _
++       InStr(1, CStr(ws.Cells(r, 4).Value2), "VERIFIED_FULL", vbTextCompare) = 0 Then
++     ws.Cells(r, 4).Value2 = "VERIFIED_FULL: Da co OB " & cap & "/" & need & " pcs"
++    End If
++   ElseIf cap > 0 Then
++    ws.Cells(r, 4).Value2 = "DA CO OB " & cap & " pcs; THIEU " & (need - cap) & " pcs"
++   Else
++    ws.Cells(r, 4).ClearContents
++   End If
++  Else
++   ws.Cells(r, 4).ClearContents
++  End If
++ Else
++  ws.Cells(r, 4).ClearContents
++ End If
++Next r
++End Sub
++
+ Private Sub PutConfig(ByVal key As String, ByVal value As String)
+ 
+ Dim ws As Worksheet, r As Long
+@@ -246,8 +285,16 @@
+  PutConfig "REQUEST_ID", candidate
+  PutConfig "VL10D_PENDING_KEY", ""
+  PutConfig "VL10D_GROUP_PENDING", ""
+-
+- ModuleLog.WriteLog "NEW_REQUEST", "INPUT thay doi; " & currentID & " -> " & candidate
++ PutConfig "VL10D_GROUP_OB_RECEIPTS", ""
++ ClearConfigPrefix "VL10D_DIRECT_DONE_"
++ ClearConfigPrefix "VL10D_BASELINE_IDS_"
++ ClearConfigPrefix "VL10D_INTENT_"
++
++ ' Clean Reset 100%: Xoa trang vung ket qua INPUT!D6:D205 va INPUT!F6:N505
++ ThisWorkbook.Worksheets("INPUT").Range("D6:D205").ClearContents
++ ThisWorkbook.Worksheets("INPUT").Range("F6:N505").ClearContents
++
++ ModuleLog.WriteLog "NEW_REQUEST", "INPUT thay doi (Clean Reset 100%); " & currentID & " -> " & candidate
+ 
+  currentID = candidate
+ 
+@@ -892,7 +939,9 @@
+ 
+ ValidateInput
+ 
+-ThisWorkbook.Worksheets("INPUT").Range("D6:D205").ClearContents
++Dim scopeConfigLive As String
++scopeConfigLive = EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2))
++EDCReconcileInputNotes scopeConfigLive
+ 
+ ThisWorkbook.Worksheets("INPUT").Range("F6:N505").ClearContents
+ 
+@@ -1361,7 +1410,9 @@
+ 
+ If onlyMaterial = "" Then
+ 
+- ws.Range("D6:D205").ClearContents
++ Dim scopeConfigPlan As String
++ scopeConfigPlan = EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2))
++ EDCReconcileInputNotes scopeConfigPlan
+ 
+  Set mAlloc = New Collection: Set mTargets = CreateObject("Scripting.Dictionary")
+  Set mWholeNeeds = CreateObject("Scripting.Dictionary"): mWholeNeeds.CompareMode = vbTextCompare
+@@ -3668,8 +3719,32 @@
+ For Each candidate In due
+  If CDbl(candidate(4)) > 0 Then eligible.Add candidate
+ Next candidate
++' ACTIVE 3001 RELEASE WHEN DUE = 0 OR DUE < MISSING:
++Dim totalDueEligible As Double, candItem As Variant
++totalDueEligible = 0#
++For Each candItem In eligible: totalDueEligible = totalDueEligible + CDbl(candItem(4)): Next candItem
++
++If (eligible.count = 0 Or totalDueEligible < missing) And ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
++ ModuleLog.WriteLog "EDC_PLAN_ACTIVE_3001_CHECK", "Material=" & mat & "; missing=" & missing & "; current total Due=" & totalDueEligible & "; attempting active 3001 draft release..."
++ Dim singleDef As Object: Set singleDef = CreateObject("Scripting.Dictionary")
++ singleDef(mat) = missing - totalDueEligible
++ Dim batchResActive As Object
++ Set batchResActive = ModuleSAP.SAPX_FindAndReleaseDraft3001OB_Batch(singleDef, scope)
++ If Not batchResActive Is Nothing Then
++  If batchResActive.exists(mat) Then
++   ModuleLog.WriteLog "EDC_PLAN_ACTIVE_3001_RELEASED", "Released draft 3001 for " & mat & ": OB=" & batchResActive(mat)(0) & " (" & batchResActive(mat)(1) & " pcs); refreshing Due list in-place..."
++   ' Refresh Due list directly using F8 refresh on VL10D without reopening
++   Set due = ModuleSAP.EDC4007_RefreshDueList()
++   Set eligible = New Collection
++   For Each candidate In due
++    If CDbl(candidate(4)) > 0 And StrComp(CStr(candidate(2)), mat, vbTextCompare) = 0 Then eligible.Add candidate
++   Next candidate
++  End If
++ End If
++End If
++
+ If eligible.count = 0 Then
+- ' Due = 0: diagnose STO without blind release of 3001
++ ' Due = 0: diagnose STO
+  ModuleLog.WriteLog "WAIT_STO_DUE_4007", mat & "; need=" & need & "; capacity=" & capacity & "; missing=" & missing & "; scope=" & scope
+  Err.Raise vbObjectError + 4269, , "WAIT_STO_DUE_4007: need=" & need & "; OB capacity=" & capacity & "; missing=" & missing
+ End If
+@@ -4154,27 +4229,25 @@
+      Next pOtherRow
+ 
+      If obHasCompletedMat Then
+-      ModuleLog.WriteLog "PARTIAL_STO_KEEP_SHARED_OB", "Partial OB=" & pTargetOB & " contains completed material " & pOtherMat & "; keeping OB"
+-      mEDCWaitByMat(CStr(pCleanMat)) = "VERIFIED_PARTIAL (DA TAO " & pActQty & "/" & pReqQty & " PCS)"
+-      EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
+-     Else
+-      ModuleLog.WriteLog "PARTIAL_STO_CLEANUP_START", "Material=" & CStr(pCleanMat) & "; Partial OB=" & pTargetOB & " (Qty=" & pActQty & "/" & pReqQty & "); 3001 released=" & releasedDraft & "; Deleting incomplete OB to restore STO Due"
+-      Set pSes = ModuleSAP.EDCGetSession()
+-      If Not pSes Is Nothing Then
+-       Dim delRes As String
+-       delRes = ModuleSAP.SAPX_DeleteDraftOB(pSes, pTargetOB)
+-       If delRes = "DELETE_VERIFIED" Then
+-        ModuleLog.WriteLog "VL10D_PARTIAL_OB_CLEANUP", "Successfully deleted partial OB=" & pTargetOB & " (" & pActQty & " pcs); STO " & sto & " Due restored"
+-        If verifiedPlans.exists(CStr(pCleanMat)) Then verifiedPlans.Remove CStr(pCleanMat)
+-        mEDCWaitByMat(CStr(pCleanMat)) = "DA XOA OB THIEU (TAO " & pActQty & "/" & pReqQty & " PCS): HET TON & 3001 KO GIU TON; TRA LAI STO DUE"
+-        EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
+-        PutConfig "VL10D_DIRECT_DONE_" & CStr(pCleanMat), ""
+-        ThisWorkbook.Save
+-       Else
+-        ModuleLog.WriteLog "PARTIAL_STO_CLEANUP_FAIL", "Could not delete partial OB=" & pTargetOB & "; status=" & delRes
+-        mEDCWaitByMat(CStr(pCleanMat)) = "VERIFIED_PARTIAL (DA TAO " & pActQty & "/" & pReqQty & " PCS): Thieu " & pDefQty & " pcs"
+-        EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
+-       End If
++      ModuleLog.WriteLog "PARTIAL_STO_KEEP_SHARED_OB", "Partial OB=" & pTargetOB & " contains completed material " & pOtherMat & "; performing item-level delete for deficit material " & CStr(pCleanMat)
++     End If
++     
++     ModuleLog.WriteLog "PARTIAL_STO_CLEANUP_START", "Material=" & CStr(pCleanMat) & "; Partial OB=" & pTargetOB & " (Qty=" & pActQty & "/" & pReqQty & "); 3001 released=" & releasedDraft & "; Deleting incomplete item/OB to restore STO Due"
++     Set pSes = ModuleSAP.EDCGetSession()
++     If Not pSes Is Nothing Then
++      Dim delRes As String
++      delRes = ModuleSAP.SAPX_DeleteDraftOB(pSes, pTargetOB, CStr(pCleanMat))
++      If delRes = "DELETE_VERIFIED" Or delRes = "DELETE_ITEM_OK" Then
++       ModuleLog.WriteLog "VL10D_PARTIAL_OB_CLEANUP", "Successfully cleaned partial OB=" & pTargetOB & " for " & CStr(pCleanMat) & " (" & pActQty & " pcs); status=" & delRes & "; STO " & sto & " Due restored"
++       If verifiedPlans.exists(CStr(pCleanMat)) Then verifiedPlans.Remove CStr(pCleanMat)
++       mEDCWaitByMat(CStr(pCleanMat)) = "DA XOA OB THIEU (TAO " & pActQty & "/" & pReqQty & " PCS): HET TON & 3001 KO GIU TON; TRA LAI STO DUE"
++       EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
++       PutConfig "VL10D_DIRECT_DONE_" & CStr(pCleanMat), ""
++       ThisWorkbook.Save
++      Else
++       ModuleLog.WriteLog "PARTIAL_STO_CLEANUP_FAIL", "Could not delete partial OB=" & pTargetOB & "; status=" & delRes
++       mEDCWaitByMat(CStr(pCleanMat)) = "VERIFIED_PARTIAL (DA TAO " & pActQty & "/" & pReqQty & " PCS): Thieu " & pDefQty & " pcs"
++       EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
+       End If
+      End If
+     End If
+@@ -4261,18 +4334,38 @@
+   ModuleLog.WriteLog "VL10D_AUTO_RECEIPTS_RESOLVED", "Auto-discovered " & plans.count & " OB receipts via STO+Creator correlation: " & Replace(records, vbLf, "; ")
+  End If
+ End If
++
++' Soft wait and retry VL06O if records not visible yet (1-2s delay)
++If records = "" Then
++ Dim discAttempt As Long
++ For discAttempt = 1 To 2
++  ModuleLog.WriteLog "VL10D_RECEIPT_RETRY_WAIT", "Records empty; waiting 2s before retry " & discAttempt & "/2..."
++  Application.Wait Now + TimeSerial(0, 0, 2)
++  EDCRefreshGroupOB InputProducts()
++  autoDiscovered = EDCDiscoverReceiptsFromVL06O(CStr(pending(1)), CStr(pending(2)), plans)
++  If autoDiscovered <> "" Then
++   records = autoDiscovered
++   PutConfig "VL10D_GROUP_OB_RECEIPTS", records
++   ModuleLog.WriteLog "VL10D_AUTO_RECEIPTS_RESOLVED", "Auto-discovered on retry " & discAttempt & ": " & Replace(records, vbLf, "; ")
++   Exit For
++  End If
++ Next discAttempt
++End If
++
+ Dim defDict As Object
+ If IsObject(deficits) Then
+  If Not deficits Is Nothing Then Set defDict = deficits
+ End If
+ If defDict Is Nothing Then Set defDict = CreateObject("Scripting.Dictionary")
++
+ If records = "" Then
++ ModuleLog.WriteLog "VL10D_GROUP_NO_RECEIPTS", "No OB receipts discovered for Request=" & pending(1) & "; STO=" & pending(2) & "; marking all as deficits without Err.Raise to allow 3001 release"
+  For Each mat In plans.keys
+   defDict(CStr(mat)) = CDbl(plans(mat)(3))
+-  mEDCWaitByMat(CStr(mat)) = "WAIT_STO_DUE_4007: SAP khong tao duoc DO (do 3001 giu ton/thieu ATP); no Create retry."
++  mEDCWaitByMat(CStr(mat)) = "WAIT_STO_DUE_4007: SAP khong tao duoc DO (do 3001 giu ton/thieu ATP)"
+   EDCSetInputNote CStr(mat), CStr(mEDCWaitByMat(mat))
+  Next mat
+- Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_MISSING: inspect VL10D creation log read-only; enter exact Request|STO|Material|OB|deliveryItem|VL10D_CREATION_LOG rows; no Create retry."
++ Exit Sub
+ End If
+ Set wanted = CreateObject("Scripting.Dictionary"): Set seen = CreateObject("Scripting.Dictionary")
+ Set totals = CreateObject("Scripting.Dictionary")
+@@ -4647,40 +4740,28 @@
+ 
+ 
+ Private Function EDCReleaseDrafts3001(ByVal deficits As Object, Optional ByVal targetSTO As String = "") As Boolean
+-Dim mat As Variant, deficitQty As Double, releaseRes As String, parts As Variant
+-Dim delOB As String, delQty As Double, countReleased As Long
++Dim batchResults As Object, mat As Variant, delOB As String, delQty As Double, countReleased As Long
+ On Error GoTo Failed
+ 
++ModuleLog.WriteLog "RELEASE_3001_BATCH_START", "Calling batch release for " & deficits.count & " deficit materials; STO=" & targetSTO
++Set batchResults = ModuleSAP.SAPX_FindAndReleaseDraft3001OB_Batch(deficits, targetSTO)
++
++If Not batchResults Is Nothing Then
++ For Each mat In batchResults.keys
++  delOB = CStr(batchResults(mat)(0)): delQty = CDbl(batchResults(mat)(1))
++  countReleased = countReleased + 1
++  ModuleLog.WriteLog "RELEASE_3001_SUCCESS", "Material=" & CStr(mat) & "; Released OB=" & delOB & " (" & delQty & " pcs)"
++  mEDCWaitByMat(CStr(mat)) = "DA XOA OB 3001: " & delOB & " (" & delQty & " pcs) DE GIAI PHONG TON; NHAN NUT 1 DE TAO LAI VL10D"
++  EDCSetInputNote CStr(mat), CStr(mEDCWaitByMat(mat))
++ Next mat
++End If
++
+ For Each mat In deficits.keys
+- deficitQty = CDbl(deficits(mat))
+- If deficitQty > 0 Then
+-  ModuleLog.WriteLog "RELEASE_3001_DECISION", "Calling release for Material=" & CStr(mat) & "; Deficit=" & deficitQty & "; STO=" & targetSTO
+-  ModuleLog.WriteLog "RELEASE_3001_START", "Searching draft 3001 OB for Material=" & CStr(mat) & "; Deficit=" & deficitQty & "; STO=" & targetSTO
+-  releaseRes = ModuleSAP.SAPX_FindAndReleaseDraft3001OB(CStr(mat), deficitQty, targetSTO)
+-  If releaseRes <> "" Then
+-   parts = Split(releaseRes, "|")
+-   If parts(0) = "LOCK" Then
+-    ModuleLog.WriteLog "WAIT_STO_LOCK", "Material=" & CStr(mat) & "; STO/OB is locked by another user; do not cancel 3001"
+-    mEDCWaitByMat(CStr(mat)) = "WAIT_STO_LOCK: Chung tu bi khoa boi nguoi khac; vui long yeu cau nha khoa"
+-    EDCSetInputNote CStr(mat), CStr(mEDCWaitByMat(mat))
+-   ElseIf parts(0) = "FAIL" Then
+-    ModuleLog.WriteLog "RELEASE_3001_FAILED", "Material=" & CStr(mat) & "; Deletion failed for OB=" & parts(1)
+-    mEDCWaitByMat(CStr(mat)) = "DELETE_FAILED: Khong the xoa draft OB 3001 " & parts(1)
+-    EDCSetInputNote CStr(mat), CStr(mEDCWaitByMat(mat))
+-   Else
+-    delOB = CStr(parts(0)): delQty = CDbl(parts(1))
+-    countReleased = countReleased + 1
+-    ModuleLog.WriteLog "RELEASE_3001_SUCCESS", "Material=" & CStr(mat) & "; Deleted OB=" & delOB & " (" & delQty & " pcs); Deficit was=" & deficitQty
+-    ModuleLog.WriteLog "RELEASE_3001_SYNC_WAIT", "Waiting 2s for SAP ATP synchronization after deleting OB=" & delOB
+-    Application.Wait Now + TimeSerial(0, 0, 2)
+-    mEDCWaitByMat(CStr(mat)) = "DA XOA OB 3001: " & delOB & " (" & delQty & " pcs) DE GIAI PHONG TON; NHAN NUT 1 DE TAO LAI VL10D"
+-    EDCSetInputNote CStr(mat), CStr(mEDCWaitByMat(mat))
+-   End If
+-  Else
+-   ModuleLog.WriteLog "RELEASE_3001_NOT_FOUND", "No suitable draft 3001 OB found to release for Material=" & CStr(mat)
+-  End If
++ If batchResults Is Nothing Or Not batchResults.exists(CStr(mat)) Then
++  ModuleLog.WriteLog "RELEASE_3001_NOT_FOUND", "No suitable draft 3001 OB found to release for Material=" & CStr(mat)
+  End If
+ Next mat
++
+ EDCReleaseDrafts3001 = (countReleased > 0)
+ Exit Function
+ Failed:
+@@ -5039,3 +5120,4 @@
+ 
+ 
+ 
++
+
+--- RC56/ModuleSAP.bas
++++ RC57/ModuleSAP.bas
+@@ -3521,7 +3521,7 @@
+ 
+   If actual + rr >= cnt Then Exit For
+ 
+-  If tbl.GetAbsoluteRow(actual + rr).selected Then tbl.GetAbsoluteRow(actual + rr).selected = False
++  If tbl.getAbsoluteRow(actual + rr).selected Then tbl.getAbsoluteRow(actual + rr).selected = False
+ 
+  Next rr
+ 
+@@ -3599,7 +3599,7 @@
+  For rr = 0 To CLng(tbl.VisibleRowCount) - 1
+   If actual + rr >= cnt Then Exit For
+   wantSelected = dropPositions.exists(CStr(actual + rr))
+-  Set selectedRow = tbl.GetAbsoluteRow(actual + rr)
++  Set selectedRow = tbl.getAbsoluteRow(actual + rr)
+   If wantSelected Then
+    item = CStr(dropPositions(CStr(actual + rr))): rowData = dropItems(item)
+    Set fld = TableField(tbl, "LIPS-POSNR", rr)
+@@ -3985,7 +3985,7 @@
+  Else
+   ClearOverviewSelection ses
+   row = LocateItem(ses, CStr(item), tbl)
+-  tbl.GetAbsoluteRow(CLng(tbl.VerticalScrollbar.Position) + row).selected = True
++  tbl.getAbsoluteRow(CLng(tbl.VerticalScrollbar.Position) + row).selected = True
+   Set f = TableField(tbl, "LIPS-POSNR", row): f.SetFocus
+   splitStarted = Timer
+   Set btn = SAPX_FindByTokens(ses, "btnBT_CHSP_T", False): btn.Press
+@@ -4200,7 +4200,7 @@
+    ' Re-read the final split after all edits; an earlier validation is not final evidence.
+   ClearOverviewSelection ses
+   row = LocateItem(ses, CStr(item), tbl)
+-  tbl.GetAbsoluteRow(CLng(tbl.VerticalScrollbar.Position) + row).selected = True
++  tbl.getAbsoluteRow(CLng(tbl.VerticalScrollbar.Position) + row).selected = True
+   Set fld = TableField(tbl, "LIPS-POSNR", row): fld.SetFocus
+   Set btn = SAPX_FindByTokens(ses, "btnBT_CHSP_T", False)
+   If btn Is Nothing Then
+@@ -4280,7 +4280,7 @@
+ Set children = CreateObject("Scripting.Dictionary")
+ ClearOverviewSelection ses
+ row = LocateItem(ses, parentItem, tbl)
+-tbl.GetAbsoluteRow(CLng(tbl.VerticalScrollbar.Position) + row).selected = True
++tbl.getAbsoluteRow(CLng(tbl.VerticalScrollbar.Position) + row).selected = True
+ Set fld = TableField(tbl, "LIPS-POSNR", row): fld.SetFocus
+ Set btn = SAPX_FindByTokens(ses, "btnBT_CHSP_T", False)
+ If btn Is Nothing Then Err.Raise vbObjectError + 4217, , "Persisted split view unavailable for " & parentItem
+@@ -5055,13 +5055,13 @@
+ Dim canReuseScreen As Boolean, pMat As Variant, allPresent As Boolean, itemDue As Variant
+ canReuseScreen = False
+ If Not mEDCLastDue Is Nothing And Not mEDCSession Is Nothing Then
+- If Timer - mEDCLastDueAt < 30 And mEDCSelectedSTO = sto Then
++ If Timer - mEDCLastDueAt < 60 And (mEDCSelectedSTO = sto Or InStr(";" & mEDCSelectedSTO & ";", ";" & sto & ";") > 0 Or mEDCSelectedSTO = "") Then
+   If SAPX_TcodeIs(mEDCSession, "VL10D") Then
+    allPresent = True
+    For Each pMat In plans.keys
+     Dim matFound As Boolean: matFound = False
+     For Each itemDue In mEDCLastDue
+-     If CStr(itemDue(2)) = CStr(pMat) Then matFound = True: Exit For
++     If CStr(itemDue(2)) = CStr(pMat) And (CStr(itemDue(0)) = sto Or sto = "") Then matFound = True: Exit For
+     Next itemDue
+     If Not matFound Then allPresent = False: Exit For
+    Next pMat
+@@ -5215,6 +5215,50 @@
+ Set EDC4007_FindDueMultiSTO = mEDCLastDue
+ End Function
+ 
++Public Function EDC4007_RefreshDueList() As Collection
++Dim ses As Object, btnRefresh As Object
++Set ses = mEDCSession
++If ses Is Nothing Then Set ses = SAPX_GetSessionForTcode("VL10D")
++If ses Is Nothing Then Set EDC4007_RefreshDueList = New Collection: Exit Function
++
++If SAPX_TcodeIs(ses, "VL10D") Then
++ ' Press F8 Refresh on Due List toolbar directly
++ Set btnRefresh = SAPX_FindById(ses, "wnd[0]/tbar[1]/btn[8]")
++ If btnRefresh Is Nothing Then Set btnRefresh = SAPX_FindById(ses, "wnd[0]/tbar[0]/btn[8]")
++ If Not btnRefresh Is Nothing Then
++  btnRefresh.Press
++  SAPX_WaitIdle ses, 30
++  ModuleLog.WriteLog "VL10D_INPLACE_REFRESH", "Refreshed Due list directly via F8 on toolbar"
++  
++  Dim result As Collection, grid As Object
++  Set result = New Collection
++  Set grid = SAPX_FindLargestGrid(ses)
++  If grid Is Nothing Then
++   Set result = EDC_ClassicDue(ses, "", mEDCSelectedSTO)
++  Else
++   Dim r As Long, qty As Double, a As Variant
++   For r = 0 To grid.rowCount - 1
++    SAPX_EnsureGridRowVisible grid, r
++    If SAPX_GridText(grid, r, mEDCPlantCol) = "4007" Then
++     qty = ModuleHelper.CleanDouble(SAPX_GridText(grid, r, mEDCQtyCol))
++     If qty > 0 Then
++      a = Array(SAPX_GridText(grid, r, mEDCStoCol), SAPX_GridText(grid, r, mEDCItemCol), SAPX_GridText(grid, r, mEDCMatCol), "4007", qty, SAPX_GridText(grid, r, mEDCUomCol), "", "", r, mEDCQtyCol, "")
++      result.Add a
++     End If
++    End If
++   Next r
++   Set mEDCGrid = grid
++  End If
++  Set mEDCLastDue = result
++  mEDCLastDueAt = Timer
++  Set EDC4007_RefreshDueList = result
++  Exit Function
++ End If
++End If
++
++Set EDC4007_RefreshDueList = EDC4007_FindDueSingle("", mEDCSelectedSTO)
++End Function
++
+ 
+ Private Function EDCGroupSelectionMatches(ByVal actual As String, ByVal expected As String) As Boolean
+ Dim selected As Object, wanted As Object, token As Variant, bounds As Variant, index As Long, key As Variant
+@@ -5388,8 +5432,8 @@
+ 
+ 
+ 
+-Public Function SAPX_DeleteDraftOB(ByVal ses As Object, ByVal ob As String) As String
+-Dim fld As Object, btnDel As Object, btnOption1 As Object
++Public Function SAPX_DeleteDraftOB(ByVal ses As Object, ByVal ob As String, Optional ByVal targetMat As String = "", Optional ByVal targetItem As String = "") As String
++Dim fld As Object, btnDel As Object, btnOption1 As Object, btnSave As Object
+ Dim sText As String, sType As String
+ On Error GoTo Failed
+ 
+@@ -5445,9 +5489,101 @@
+  End If
+ End If
+ 
+-ModuleLog.WriteLog "DELETE_OB_SUBMIT", "Pressing toolbar delete btn[14] per deleteob.vbs for draft OB=" & ob
+-
+-' Step 1 per deleteob.vbs: Press Delete button on Toolbar 1 (btn[14])
++' Check number of items on the delivery
++Dim snap As Object, isMultiItem As Boolean
++isMultiItem = False
++On Error Resume Next
++Set snap = OverviewSnapshot(ses, False)
++On Error GoTo Failed
++If Not snap Is Nothing Then
++ If snap.count >= 2 Then isMultiItem = True
++End If
++
++' =====================================================================
++' CASE A: MULTI-ITEM DELIVERY (>= 2 items): Perform Item-Level Delete!
++' =====================================================================
++If isMultiItem And (targetMat <> "" Or targetItem <> "") Then
++ Dim targetAbsRow As Long: targetAbsRow = -1
++ Dim foundItemNo As String: foundItemNo = ""
++ Dim itmK As Variant, itmInfo As Variant
++ If Not snap Is Nothing Then
++  For Each itmK In snap.keys
++   itmInfo = snap(itmK)
++   If targetMat <> "" And StrComp(Trim$(CStr(itmInfo(0))), Trim$(targetMat), vbTextCompare) = 0 Then
++    targetAbsRow = CLng(itmInfo(3))
++    foundItemNo = CStr(itmK)
++    Exit For
++   ElseIf targetItem <> "" And Trim$(CStr(itmK)) = Trim$(targetItem) Then
++    targetAbsRow = CLng(itmInfo(3))
++    foundItemNo = CStr(itmK)
++    Exit For
++   End If
++  Next itmK
++ End If
++ 
++ If targetAbsRow >= 0 Then
++  ModuleLog.WriteLog "DELETE_ITEM_TARGET", "OB=" & ob & "; Item=" & foundItemNo & "; Mat=" & targetMat & "; absRow=" & targetAbsRow & "; total items=" & snap.count
++  Dim tbl As Object
++  Set tbl = DeliveryOverview(ses)
++  If tbl Is Nothing Then
++   SAPX_DeleteDraftOB = "DELETE_FAILED": Exit Function
++  End If
++  
++  tbl.VerticalScrollbar.Position = targetAbsRow
++  Set tbl = DeliveryOverview(ses)
++  tbl.getAbsoluteRow(targetAbsRow).selected = True
++  
++  ' Edit -> Delete Item (Shift+F2)
++  On Error Resume Next
++  ses.findById("wnd[0]/mbar/mp[1]/mi[4]").Select
++  If Err.Number <> 0 Then
++   Err.Clear
++   ses.findById("wnd[0]").sendVKey 14
++  End If
++  On Error GoTo Failed
++  SAPX_WaitIdle ses, 15
++  
++  ' Confirm deletion popup if present
++  If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
++   Set btnOption1 = SAPX_FindById(ses, "wnd[1]/usr/btnSPOP-OPTION1")
++   If btnOption1 Is Nothing Then Set btnOption1 = SAPX_FindById(ses, "wnd[1]/usr/btnSPOP-VAROPTION1")
++   If Not btnOption1 Is Nothing Then
++    btnOption1.Press
++   Else
++    ses.findById("wnd[1]").sendVKey 0
++   End If
++   SAPX_WaitIdle ses, 15
++  End If
++  
++  ' Press Save btn[11]
++  Set btnSave = SAPX_FindById(ses, "wnd[0]/tbar[0]/btn[11]")
++  If Not btnSave Is Nothing Then btnSave.Press Else ses.findById("wnd[0]").sendVKey 11
++  SAPX_WaitIdle ses, 20
++  
++  sText = SAPX_StatusText(ses)
++  sType = SAPX_StatusType(ses)
++  If IsSaveReceipt(sText, ob, ses) Or sType = "S" Or InStr(1, sText, "saved", vbTextCompare) > 0 Or InStr(1, sText, "da duoc luu", vbTextCompare) > 0 Then
++   ModuleLog.WriteLog "DELETE_ITEM_OK", "OB=" & ob & "; Item=" & foundItemNo & "; Mat=" & targetMat & "; remaining items preserved (" & (snap.count - 1) & " items)"
++   SAPX_DeleteDraftOB = "DELETE_ITEM_OK"
++   Exit Function
++  Else
++   ModuleLog.WriteLog "DELETE_ITEM_SAVE_FAILED", "OB=" & ob & "; Item=" & foundItemNo & "; Mat=" & targetMat & "; text=" & sText
++   SAPX_DeleteDraftOB = "DELETE_FAILED"
++   Exit Function
++  End If
++ Else
++  ' Target item not found on this multi-item OB (possibly already deleted)
++  ModuleLog.WriteLog "DELETE_ITEM_NOT_FOUND", "OB=" & ob & "; Mat=" & targetMat & " not found in overview snapshot; considering already clean"
++  SAPX_DeleteDraftOB = "DELETE_VERIFIED"
++  Exit Function
++ End If
++End If
++
++' =====================================================================
++' CASE B: SINGLE-ITEM DELIVERY (or remaining 1 item): Delete entire OB!
++' =====================================================================
++ModuleLog.WriteLog "DELETE_OB_SUBMIT", "Single-item delivery: Pressing toolbar delete btn[14] per deleteob.vbs for OB=" & ob
++
+ Set btnDel = SAPX_FindById(ses, "wnd[0]/tbar[1]/btn[14]")
+ If btnDel Is Nothing Then Set btnDel = SAPX_FindById(ses, "wnd[0]/tbar[0]/btn[14]")
+ If btnDel Is Nothing Then
+@@ -5459,7 +5595,6 @@
+ btnDel.Press
+ If Not SAPX_WaitIdle(ses, 15) Then SAPX_DeleteDraftOB = "DELETE_FAILED": Exit Function
+ 
+-' Step 2 per deleteob.vbs: Confirm deletion in popup (btnSPOP-OPTION1)
+ If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
+  Set btnOption1 = SAPX_FindById(ses, "wnd[1]/usr/btnSPOP-OPTION1")
+  If btnOption1 Is Nothing Then Set btnOption1 = SAPX_FindById(ses, "wnd[1]/usr/btnSPOP-VAROPTION1")
+@@ -5477,7 +5612,6 @@
+ sType = SAPX_StatusType(ses)
+ ModuleLog.WriteLog "DELETE_OB_RESULT", "OB=" & ob & "; type=" & sType & "; text=" & sText
+ 
+-' Step 3: Hau kiem live bang cach mo lai tra so OB trong VL02N
+ SAPX_Navigate ses, "VL02N"
+ SAPX_WaitIdle ses, 10
+ Set fld = DeliveryNumberField(ses)
+@@ -5498,7 +5632,6 @@
+  End If
+ End If
+ 
+-' Fallback based on deletion message text
+ If InStr(1, sText, "deleted", vbTextCompare) > 0 Or _
+    InStr(1, sText, "gelöscht", vbTextCompare) > 0 Or _
+    InStr(1, sText, "da xoa", vbTextCompare) > 0 Then
+@@ -5513,7 +5646,7 @@
+  SAPX_DeleteDraftOB = "DELETE_FAILED"
+ End Function
+ 
+-Public Function SAPX_FindAndReleaseDraft3001OB(ByVal targetMat As String, ByVal deficitQty As Double, Optional ByVal targetSTO As String = "") As String
++Public Function SAPX_FindAndReleaseDraft3001OB_Batch(ByVal deficits As Object, Optional ByVal targetSTO As String = "") As Object
+ Dim ses As Object, ctl As Object, grid As Object, dfrom As Date
+ Dim ids As Collection, ni As Object, nc As Object
+ Dim cDel As String, cItem As String, cMat As String, cQty As String
+@@ -5521,12 +5654,18 @@
+ Dim cSTO As String, cCreator As String
+ Dim r As Long, n As Long, mat As String, ob As String, rowBatch As String, rowSloc As String
+ Dim rowGM As String, rowParent As String, qtyText As String, qty As Double, reason As String
+-Dim bestOB As String, bestQty As Double, minDiff As Double, diff As Double, candidateCount As Long
+-Dim ship3001 As String, sploc3093 As String, singleProd As Object, releaseSuccess As Boolean
++Dim ship3001 As String, sploc3093 As String, curUser As String
++Dim rowCreator As String, rowRefSTO As String, diff As Double, candScore As Double
++Dim bestCandidates As Object, matKey As Variant, cand As Variant
++Dim results As Object, delStatus As String, bestOB As String, bestQty As Double
+ 
+ On Error GoTo Failed
++Set results = CreateObject("Scripting.Dictionary")
++If deficits Is Nothing Then Set SAPX_FindAndReleaseDraft3001OB_Batch = results: Exit Function
++If deficits.count = 0 Then Set SAPX_FindAndReleaseDraft3001OB_Batch = results: Exit Function
++
+ Set ses = SAPX_GetSessionForTcode("VL06O")
+-If ses Is Nothing Then Exit Function
++If ses Is Nothing Then Set SAPX_FindAndReleaseDraft3001OB_Batch = results: Exit Function
+ 
+ ship3001 = ModuleHelper.ToolConfig("PLANT_3001_SHIP_TO", "3001")
+ sploc3093 = ModuleHelper.ToolConfig("VL06O_SHIPPING_POINT", "3093")
+@@ -5536,6 +5675,7 @@
+ 
+ If Not VL6_SetSelectionShipTo(ses, ship3001) Then
+  ModuleLog.WriteLog "VL06O_3001_SELECTION_ERR", "Could not set Ship-to=" & ship3001
++ Set SAPX_FindAndReleaseDraft3001OB_Batch = results
+  Exit Function
+ End If
+ 
+@@ -5550,21 +5690,58 @@
+ Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_WADAT-HIGH")
+ If Not ctl Is Nothing Then ctl.text = Format$(DateAdd("d", 60, Date), "dd.mm.yyyy")
+ 
+-Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_WBSTK-LOW")
++Set ctl = SAPX_FindById(ses, "wnd[0]/ctxtIT_WBSTK-LOW")
++If ctl Is Nothing Then Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_WBSTK-LOW")
+ If Not ctl Is Nothing Then ctl.text = "A"
+ 
++' Input all deficit materials into multiple selection of MATNR if control exists
++Set ctl = SAPX_FindByTokens(ses, "%_IT_MATNR_%_APP_%-VALU_PUSH|%_S_MATNR_%_APP_%-VALU_PUSH", False)
++If Not ctl Is Nothing Then
++ ctl.Press
++ If SAPX_WaitIdle(ses, 10) Then
++  On Error Resume Next
++  ses.findById("wnd[1]/tbar[0]/btn[16]").Press
++  SAPX_WaitIdle ses, 5
++  Dim wsList As Worksheet
++  Set wsList = ThisWorkbook.Worksheets("SEARCH_LIST")
++  wsList.columns(1).ClearContents
++  wsList.Cells(1, 1).Value2 = "MATERIAL"
++  Dim arrMat() As Variant, mi As Long
++  ReDim arrMat(1 To deficits.count, 1 To 1)
++  mi = 1
++  For Each matKey In deficits.keys
++   arrMat(mi, 1) = CStr(matKey)
++   mi = mi + 1
++  Next matKey
++  wsList.Range("A2").Resize(deficits.count, 1).Value2 = arrMat
++  wsList.Range("A2:A" & CStr(deficits.count + 1)).Copy
++  ses.findById("wnd[1]/tbar[0]/btn[24]").Press
++  SAPX_WaitIdle ses, 10
++  ses.findById("wnd[1]/tbar[0]/btn[8]").Press
++  SAPX_WaitIdle ses, 10
++  On Error GoTo Failed
++ End If
++ElseIf deficits.count = 1 Then
++ For Each matKey In deficits.keys
++  Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_MATNR-LOW")
++  If Not ctl Is Nothing Then ctl.text = CStr(matKey)
++  Exit For
++ Next matKey
++End If
++
+ ses.findById("wnd[0]/tbar[1]/btn[8]").Press
+-If Not SAPX_WaitIdle(ses, 30) Then Exit Function
++If Not SAPX_WaitIdle(ses, 30) Then Set SAPX_FindAndReleaseDraft3001OB_Batch = results: Exit Function
+ 
+ If InStr(1, SAPX_StatusText(ses), "no deliveries", vbTextCompare) > 0 Or _
+    InStr(1, SAPX_StatusText(ses), "no data", vbTextCompare) > 0 Or _
+    InStr(1, SAPX_StatusText(ses), "keine lieferungen", vbTextCompare) > 0 Then
+  ModuleLog.WriteLog "VL06O_3001_EMPTY", "No deliveries found for 3001 in 60-day window"
++ Set SAPX_FindAndReleaseDraft3001OB_Batch = results
+  Exit Function
+ End If
+ 
+ Set grid = VL6_EnsureItemGrid(ses)
+-If grid Is Nothing Then Exit Function
++If grid Is Nothing Then Set SAPX_FindAndReleaseDraft3001OB_Batch = results: Exit Function
+ 
+ SAPX_BuildColumnCatalogFast grid, ids, ni, nc
+ cDel = SAPX_ResolveColumnFast("VBELN", "VBELN,DELIVERY", True, ids, ni, nc)
+@@ -5578,27 +5755,17 @@
+ cSTO = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL06O_COL_STO", "VGBEL"), "VGBEL,REFERENCE DOCUMENT,PURCHASE ORDER", False, ids, ni, nc)
+ cCreator = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL06O_COL_CREATOR", "ERNAM"), "ERNAM,CREATED BY,USER", False, ids, ni, nc)
+ 
+-Set singleProd = CreateObject("Scripting.Dictionary")
+-singleProd(targetMat) = True
+-VL6_ApplyALVFilter ses, grid, cMat, "", singleProd
+-Set grid = VL6_DirectGrid(ses)
+-If grid Is Nothing Then Exit Function
+-
+-n = CLng(grid.rowCount)
+-ModuleLog.WriteLog "VL06O_3001_FILTER", "Rows for Material=" & targetMat & ": " & n
+-
+-minDiff = 1E+30: bestOB = "": bestQty = 0: candidateCount = 0
+-Dim curUser As String
+ curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_CURRENT_USER", "")))
+ If curUser = "" Then curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_USER", "")))
+ 
+-Dim bestScore As Double: bestScore = -1E+30
+-Dim candScore As Double, rowCreator As String, rowRefSTO As String
++Set bestCandidates = CreateObject("Scripting.Dictionary")
++n = CLng(grid.rowCount)
++ModuleLog.WriteLog "VL06O_3001_BATCH_SCAN", "Scanning " & n & " rows in VL06O for " & deficits.count & " deficit materials"
+ 
+ For r = 0 To n - 1
+  SAPX_EnsureGridRowVisible grid, r
+  mat = RequiredCell(grid, r, cMat)
+- If StrComp(mat, targetMat, vbTextCompare) = 0 Then
++ If deficits.exists(mat) Then
+   rowBatch = RequiredCell(grid, r, cBatch)
+   rowSloc = RequiredCell(grid, r, cSloc)
+   rowGM = RequiredCell(grid, r, cGM)
+@@ -5612,50 +5779,63 @@
+   
+   If rowBatch = "" And rowSloc = "" And (rowGM = "A" Or rowGM = "") And val(rowParent) = 0 Then
+    If ModuleHelper.ParseSAPIntegerQty(qtyText, qty, reason) And qty > 0 Then
+-    candidateCount = candidateCount + 1
+-    diff = Abs(qty - deficitQty)
+-    ' Scoring: creator match +1000, target STO match +500, exact qty match
++    diff = Abs(qty - CDbl(deficits(mat)))
+     candScore = -diff
+     If curUser <> "" And rowCreator = curUser Then candScore = candScore + 1000#
+     If targetSTO <> "" And rowRefSTO = targetSTO Then candScore = candScore + 500#
+-    ModuleLog.WriteLog "DRAFT_3001_CANDIDATE", "OB=" & ob & "; Mat=" & targetMat & "; Qty=" & qty & "; diff=" & diff & "; Creator=" & rowCreator & "; STO=" & rowRefSTO & "; score=" & candScore
+-    If candScore > bestScore Then
+-     bestScore = candScore
+-     minDiff = diff
+-     bestOB = ob
+-     bestQty = qty
++    
++    If Not bestCandidates.exists(mat) Then
++     bestCandidates(mat) = Array(ob, qty, candScore)
++    Else
++     If candScore > CDbl(bestCandidates(mat)(2)) Then
++      bestCandidates(mat) = Array(ob, qty, candScore)
++     End If
+     End If
+    End If
+   End If
+  End If
+ Next r
+ 
+-If bestOB <> "" And bestQty > 0 Then
+- ModuleLog.WriteLog "DRAFT_3001_SELECTED", "Selected candidate OB=" & bestOB & " (Qty=" & bestQty & "; minDiff=" & minDiff & ") for deficit=" & deficitQty
+- Dim delStatus As String
+- delStatus = SAPX_DeleteDraftOB(ses, bestOB)
+- If delStatus = "DELETE_VERIFIED" Then
+-  SAPX_FindAndReleaseDraft3001OB = bestOB & "|" & CStr(bestQty)
+-  ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Released OB=" & bestOB & " (Qty=" & bestQty & ")"
+- ElseIf delStatus = "WAIT_STO_LOCK" Then
+-  SAPX_FindAndReleaseDraft3001OB = "LOCK|" & bestOB
+-  ModuleLog.WriteLog "DRAFT_3001_STO_LOCKED", "STO locked by another user; cannot release OB=" & bestOB
+- ElseIf delStatus = "WAIT_OB_LOCK" Then
+-  SAPX_FindAndReleaseDraft3001OB = "LOCK|" & bestOB
+-  ModuleLog.WriteLog "DRAFT_3001_OB_LOCKED", "OB=" & bestOB & " is locked by another user"
++' Sequential deletion of candidates in VL02N
++For Each matKey In bestCandidates.keys
++ cand = bestCandidates(matKey)
++ bestOB = CStr(cand(0)): bestQty = CDbl(cand(1))
++ ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETING", "Material=" & CStr(matKey) & "; Deleting candidate OB=" & bestOB & " (" & bestQty & " pcs)"
++ delStatus = SAPX_DeleteDraftOB(ses, bestOB, CStr(matKey))
++ If delStatus = "DELETE_VERIFIED" Or delStatus = "DELETE_ITEM_OK" Then
++  results(CStr(matKey)) = Array(bestOB, bestQty)
++  ModuleLog.WriteLog "DRAFT_3001_BATCH_RELEASED", "Material=" & CStr(matKey) & "; OB=" & bestOB & " (" & bestQty & " pcs); status=" & delStatus
+  Else
+-  SAPX_FindAndReleaseDraft3001OB = "FAIL|" & bestOB
+-  ModuleLog.WriteLog "DRAFT_3001_RELEASE_FAIL", "Failed to delete OB=" & bestOB & "; status=" & delStatus
+- End If
+-Else
+- ModuleLog.WriteLog "DRAFT_3001_NONE", "No unallocated/unpicked draft OB found for Material=" & targetMat
+-End If
+-
+-SAPX_Navigate ses, "VL06O"
++  ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETE_FAIL", "Material=" & CStr(matKey) & "; OB=" & bestOB & "; status=" & delStatus
++ End If
++Next matKey
++
++' Synchronize ATP once for entire batch
++If results.count > 0 Then
++ ModuleLog.WriteLog "DRAFT_3001_BATCH_SYNC", "Waiting 2s for SAP ATP synchronization after releasing " & results.count & " materials"
++ Application.Wait Now + TimeSerial(0, 0, 2)
++End If
++
++Set SAPX_FindAndReleaseDraft3001OB_Batch = results
+ Exit Function
++
+ Failed:
+- ModuleLog.WriteLog "DRAFT_3001_ERROR", Err.Number & "; " & Err.Description
+- SAPX_FindAndReleaseDraft3001OB = ""
++ ModuleLog.WriteLog "VL06O_3001_BATCH_ERROR", Err.Number & "; " & Err.Description
++ Set SAPX_FindAndReleaseDraft3001OB_Batch = results
++End Function
++
++Public Function SAPX_FindAndReleaseDraft3001OB(ByVal targetMat As String, ByVal deficitQty As Double, Optional ByVal targetSTO As String = "") As String
++Dim dDict As Object: Set dDict = CreateObject("Scripting.Dictionary")
++dDict(targetMat) = deficitQty
++Dim res As Object
++Set res = SAPX_FindAndReleaseDraft3001OB_Batch(dDict, targetSTO)
++If Not res Is Nothing Then
++ If res.exists(targetMat) Then
++  SAPX_FindAndReleaseDraft3001OB = res(targetMat)(0) & "|" & CStr(res(targetMat)(1))
++  Exit Function
++ End If
++End If
++SAPX_FindAndReleaseDraft3001OB = ""
+ End Function
+ 
+ ' =====================================================================
+@@ -6004,3 +6184,4 @@
+ 
+ 
+ 
++
+
+--- RC56/ModuleHelper.bas
++++ RC57/ModuleHelper.bas
+@@ -563,3 +563,4 @@
+ 
+ 
+ 
++
+
