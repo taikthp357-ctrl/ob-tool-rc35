@@ -1,0 +1,19 @@
+# Yêu cầu sửa cấu hình và giao diện — chỉ đạo mới nhất của người dùng
+
+Chỉ đạo này thay thế các cách hiểu trái ngược trong brief trước. Astra chịu trách nhiệm chia việc, kiểm tra bằng chứng và báo cáo ngắn. Không coi pilot nhập file thủ công hiện tại là đã hoàn thành luồng SAP.
+
+1. Tải tồn trực tiếp từ SAP và cập nhật database sau mỗi lượt tải thành công. Snapshot mới thay thế tồn hiện hành theo phạm vi tải, không cộng dồn lịch sử. File Excel SAP xuất ra chỉ là trung gian, có thể tự xóa sau khi nhập và kiểm tra thành công; khi thất bại giữ file để chẩn đoán, không xóa file người dùng.
+2. Đối soát BBBG lấy MB51 và các nguồn cần thiết trực tiếp từ SAP theo đơn/phạm vi. Không bắt người vận hành chọn file MB51 trong luồng chính. Ẩn chi tiết kỹ thuật sau phần xem chi tiết; hiển thị kết quả, sai lệch và việc cần xử lý. Giữ kiểm tra dữ liệu, phạm vi, đơn vị và hàng đảo như baseline.
+3. VBS được dùng để đưa toàn bộ bộ công cụ và Python vào luồng chạy/đóng gói, không chỉ khởi động một server. Astra phải rà tool/VBS/Python cũ và xác định cách triển khai tương thích máy vận hành, tránh diễn giải thành đã hỗ trợ SAP khi chỉ có daemon.
+4. Bảng điền OB/đơn pick phải bám mẫu Excel cũ. Model nằm cạnh cột #. Cột A thừa có thể bỏ; mã dán vào được sử dụng trực tiếp. Đọc mẫu và lịch sử để xác định đúng thứ tự, không đoán schema. Giữ số 0 đầu mã/OB.
+5. Bảng nhập không cố định 3 dòng/ô. Cho tăng giảm số dòng, dán nhiều dòng Excel và giữ dòng trống dễ thao tác; tránh giới hạn cứng.
+6. Danh sách đơn pick bên dưới gần Excel: STT, OB, mã và số lượng nếu có, vị trí, số phiếu. Packing box/rack và quyết định ra đơn vẫn do người xử lý. Chờ CF cho phép dán từ Excel, không bắt buộc pick do hệ thống tạo.
+7. Hoàn thiện kết nối nguồn SAP và đối soát BBBG theo 1–2. Nếu selector/session chưa xác minh, báo rõ phần chưa chạy, kiểm tra thực tế trước khi công bố hoàn thành.
+8. Không trình bày một chế độ tên “điền OB tồn thấp 2–3 batch” như hiện tại. Là khu gợi ý tồn thấp, người dùng chọn và chuyển gợi ý sang bảng điền OB. Cho yêu cầu/chỉnh số lượng theo mã và batch. Tính lượng bổ sung từ tồn và cấu hình DOH của model để đạt mức đủ, không cố định 2–3 batch hoặc tự lấy hết batch. Đơn vị tiêu hao/ngày và công thức DOH phải lấy từ cấu hình/baseline có nguồn; thiếu dữ liệu thì báo chưa tính được. Tôn trọng plant/kho/shop, lượng giữ chỗ và lượng khả dụng.
+9. Màn tồn gồm hai bảng: ưu tiên và tổng tồn; thêm khu báo cáo tổng hợp dễ đọc. Mẫu ảnh: (LINE + KHO) BODY, thời điểm cập nhật và ngày; hàng model Limo, VF5, VF6, VF6,7, VF6 CIS, VF7, VF8, VF8NR; cột 0 XE, <=50 XE, <=100 XE, <=150 XE, <=200 XE, <=300 XE, <=400 XE, <=500 XE, >500 XE, tổng số mã; chân bảng tổng số mã và tỷ lệ. Các dải phải không chồng nhau (ví dụ 1–50, 51–100...) dù nhãn theo mẫu. Đối chiếu cách quy đổi tồn sang XE với Excel/baseline, không tự bịa BOM/tiêu hao. Tô nổi bật thiếu/ưu tiên, có tổng và nguồn/thời điểm dữ liệu. Không dùng số mẫu làm dữ liệu thực.
+10. Nhánh 4007 người dùng sẽ xử lý sau. Hoãn logic/báo cáo riêng 4007, nguồn báo cáo chưa xác định; không tự suy đoán hoặc gộp vào BODY.
+11. Điều hành FG cần bảng báo cáo số liệu trực quan: KPI, bảng phân bố theo model và dải tồn, tỷ lệ thiếu/ưu tiên, thời điểm tải và nguồn; tương tác xem chi tiết mã từ số tổng. Thiếu nguồn thì hiện chưa có dữ liệu, không dựng số liệu giả.
+
+Ảnh tham chiếu: C:/Users/taikt/AppData/Local/Temp/codex-clipboard-70ec9f7e-45e5-4bc4-8453-8a7bb9aabc96.png. Sao chép vào tài liệu dự án để tham chiếu bền vững nếu cần.
+
+Phân công đề nghị: Kai sửa SAP/database/OB/pick và giao diện; Luna so mẫu Excel/VBS cũ, nguồn và công thức DOH/báo cáo; Nova kiểm thử luồng SAP thực tế, snapshot/cleanup, paste nhiều dòng, đúng cột, chuyển gợi ý và đối soát. Astra có thể chia nhỏ theo phụ thuộc. Chỉ đọc file liên quan, không lặp lại toàn bộ test không đổi. Báo cáo tối đa 5 dòng, phân biệt đã sửa/đã kiểm thử/chưa có nguồn/bị chặn.

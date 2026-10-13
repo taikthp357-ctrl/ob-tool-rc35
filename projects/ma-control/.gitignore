@@ -1,0 +1,16 @@
+# Python & Test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local databases & runtime logs
+*.db
+*.sqlite3
+data/*.db
+data/temp_test/
+logs/
+*.log
+
+# Backups
+backups/

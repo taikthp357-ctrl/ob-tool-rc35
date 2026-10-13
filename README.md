@@ -1,4 +1,10 @@
-# OB TOOL V1 RC52
+# MA CONTROL & OB TOOL RELEASES
+
+> 🚀 **Mới nhất (13/10/2026):** Đã hoàn tất và tích hợp dự án **MA CONTROL — Điều Hành FG Webapp** (Python + FastAPI + Excel-like UI) tại thư mục [`projects/ma-control/`](projects/ma-control/). Hợp nhất toàn diện bộ 3 công cụ: Stock FG V3.6, OB Tool RC52 và BBBG FG V2.2.14 với 141 bài kiểm thử tự động đạt 100% PASS. Xem chi tiết tại [Hướng dẫn MA Control FG](projects/ma-control/README.md).
+
+---
+
+## 📦 Bản phát hành Excel Macro: OB TOOL V1 RC52
 
 Canonical XLSM: `261010_OB_TOOL_V1_RC52.xlsm`  
 Canonical SHA256: `C506832470E005CFF848A2F9319FA9266DC3136B0F5D2683053DFD1025B99979`  
