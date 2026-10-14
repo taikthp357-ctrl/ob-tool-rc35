@@ -1,0 +1,215 @@
+--- RC59/ModuleSAP.bas
++++ RC60/ModuleSAP.bas
+@@ -5469,35 +5469,25 @@
+  End If
+ End If
+ 
+-' Inspect overview snapshot to distinguish Single-Item OB vs Multi-Item OB
+-Set snap = OverviewSnapshot(ses, False)
+-totalItems = 0
+-If Not snap Is Nothing Then totalItems = snap.count
+-
+-allItemsUnprocessedNoSloc = True
+-If Not snap Is Nothing And snap.count > 0 Then
+- For Each itmKey In snap.keys
+-  itmData = snap(itmKey)
+-  ' itmData(1) is batch (LIPS-CHARG), itmData(4) is sloc (LIPS-LGORT)
+-  If Trim$(CStr(itmData(1))) <> "" Or Trim$(CStr(itmData(4))) <> "" Then
+-   allItemsUnprocessedNoSloc = False
+-   Exit For
+-  End If
+- Next itmKey
+-Else
+- allItemsUnprocessedNoSloc = False
+-End If
+-
+-shouldDeleteWholeOB = False
+-If totalItems <= 1 Then
+- shouldDeleteWholeOB = True
+-ElseIf isDraft3001Release And allItemsUnprocessedNoSloc Then
+- ' RC59: Nhanh xoa OB de tra ton 3001: Neu OB chua nhieu ma ben 3001 nhung chua co SLoc va chua ai xu ly thi xoa ca OB
+- ModuleLog.WriteLog "DELETE_3001_DRAFT_WHOLE_OB", "Draft 3001 OB=" & ob & " (" & totalItems & " items) has NO sloc and NO batch processing; deleting whole OB via btn[14] to restore stock"
+- shouldDeleteWholeOB = True
+-End If
+-
+-If Not shouldDeleteWholeOB And (targetMat <> "" Or targetItem <> "") Then
++If isDraft3001Release Then
++ ' =========================================================================
++ ' RC60: NHANH XOA OB DE TRA TON 3001 (DA XAC MINH O VL06O LA KHONG CO SLOC)
++ ' Vi VL06O khong co SLoc nghia la tat ca cac dong deu khong co SLoc.
++ ' Khong can mo OverviewSnapshot, khong can scroll, xoa luon toan bo qua btn[14].
++ ' =========================================================================
++ ModuleLog.WriteLog "DELETE_3001_DRAFT_DIRECT", "Draft 3001 OB=" & ob & " verified no SLoc in VL06O; deleting whole OB directly via btn[14]"
++ GoTo DeleteWholeOB
++End If
++
++' Neu la 4007 partial cleanup va co yeu cau xoa cap dong:
++If targetMat <> "" Or targetItem <> "" Then
++ ' -------------------------------------------------------------
++ ' RC57 Khau 2: XOA CAP DONG (ITEM-LEVEL DELETE) CHO OB DA MA (4007)
++ ' Bao ve nguyen ven cac Item hop le da tao du, chi xoa dong thieu
++ ' -------------------------------------------------------------
++ Set snap = OverviewSnapshot(ses, False)
++ totalItems = 0
++ If Not snap Is Nothing Then totalItems = snap.count
+  ' -------------------------------------------------------------
+  ' RC57 Khau 2: XOA CAP DONG (ITEM-LEVEL DELETE) CHO OB DA MA
+  ' Bao ve nguyen ven cac Item hop le da tao du, chi xoa dong thieu
+@@ -5573,6 +5563,7 @@
+  End If
+ End If
+ 
++DeleteWholeOB:
+ ' -------------------------------------------------------------
+ ' SINGLE-ITEM OB HOAC TOAN BO OB: XOA CA CHUNG TU (btn[14])
+ ' -------------------------------------------------------------
+@@ -5607,34 +5598,20 @@
+ sType = SAPX_StatusType(ses)
+ ModuleLog.WriteLog "DELETE_OB_RESULT", "OB=" & ob & "; type=" & sType & "; text=" & sText
+ 
+-' Hau kiem live bang cach mo lai tra so OB trong VL02N
+-SAPX_Navigate ses, "VL02N"
+-SAPX_WaitIdle ses, 10
+-Set fld = DeliveryNumberField(ses)
+-If fld Is Nothing Then Set fld = SAPX_FindById(ses, "wnd[0]/usr/ctxtLIKP-VBELN")
+-If Not fld Is Nothing Then
+- fld.text = ob
+- ses.findById("wnd[0]").sendVKey 0
+- SAPX_WaitIdle ses, 10
+- sText = SAPX_StatusText(ses)
+- sType = SAPX_StatusType(ses)
+- If InStr(1, sText, "does not exist", vbTextCompare) > 0 Or _
+-    InStr(1, sText, "nicht vorhanden", vbTextCompare) > 0 Or _
+-    InStr(1, sText, "khong ton tai", vbTextCompare) > 0 Or _
+-    (sType = "E" And InStr(1, sText, ob) > 0) Then
+-  ModuleLog.WriteLog "DELETE_VERIFIED", "Confirmed OB=" & ob & " no longer exists on SAP"
+-  SAPX_DeleteDraftOB = "DELETE_VERIFIED"
+-  Exit Function
+- End If
+-End If
+-
+-' Fallback based on deletion message text
+-If InStr(1, sText, "deleted", vbTextCompare) > 0 Or _
++' =========================================================================
++' RC60: BAO THANH CONG LUON PER CHI DAO NGUOI DUNG - KHONG CLICK MO LAI DE KIEM TRA
++' =========================================================================
++If sType <> "E" Or InStr(1, sText, "deleted", vbTextCompare) > 0 Or _
+    InStr(1, sText, "gelöscht", vbTextCompare) > 0 Or _
+-   InStr(1, sText, "da xoa", vbTextCompare) > 0 Then
++   InStr(1, sText, "da xoa", vbTextCompare) > 0 Or _
++   InStr(1, sText, "xoa", vbTextCompare) > 0 Or sType = "S" Then
++ ModuleLog.WriteLog "DELETE_VERIFIED", "Confirmed OB=" & ob & " deleted on SAP (direct confirmation): " & sText
+  SAPX_DeleteDraftOB = "DELETE_VERIFIED"
++ Exit Function
+ Else
++ ModuleLog.WriteLog "DELETE_OB_FAIL", "Delete failed for OB=" & ob & "; status=" & sText
+  SAPX_DeleteDraftOB = "DELETE_FAILED"
++ Exit Function
+ End If
+ Exit Function
+ 
+@@ -5724,68 +5701,50 @@
+ curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_CURRENT_USER", "")))
+ If curUser = "" Then curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_USER", "")))
+ 
+-' Group best candidates per deficit material
+-Set candidatesByMat = CreateObject("Scripting.Dictionary")
++' RC60: Gom tat ca cac draft OB 3001 khong co SLoc va chua ai xu ly cho toan bo danh sach ma thieu
++Set toDeleteDict = CreateObject("Scripting.Dictionary")
+ For r = 0 To n - 1
+  SAPX_EnsureGridRowVisible grid, r
+  mat = RequiredCell(grid, r, cMat)
+- If deficits.exists(mat) Then
+-  rowBatch = RequiredCell(grid, r, cBatch)
+-  rowSloc = RequiredCell(grid, r, cSloc)
+-  rowGM = RequiredCell(grid, r, cGM)
+-  rowParent = RequiredCell(grid, r, cParent)
+-  ob = RequiredCell(grid, r, cDel)
+-  qtyText = RequiredCell(grid, r, cQty)
+-  rowCreator = ""
+-  If cCreator <> "" Then rowCreator = UCase$(Trim$(RequiredCell(grid, r, cCreator)))
+-  rowRefSTO = ""
+-  If cSTO <> "" Then rowRefSTO = Trim$(RequiredCell(grid, r, cSTO))
+-  
+-  If rowBatch = "" And rowSloc = "" And (rowGM = "A" Or rowGM = "") And val(rowParent) = 0 Then
+-   If ModuleHelper.ParseSAPIntegerQty(qtyText, qty, reason) And qty > 0 Then
+-    deficitQty = CDbl(deficits(mat))
+-    diff = Abs(qty - deficitQty)
+-    candScore = -diff
+-    If curUser <> "" And rowCreator = curUser Then candScore = candScore + 1000#
+-    If targetSTO <> "" And rowRefSTO = targetSTO Then candScore = candScore + 500#
+-    
+-    If Not candidatesByMat.exists(mat) Then
+-     candidatesByMat.Add mat, Array(ob, qty, candScore)
+-    Else
+-     If candScore > CDbl(candidatesByMat(mat)(2)) Then
+-      candidatesByMat(mat) = Array(ob, qty, candScore)
+-     End If
+-    End If
++ rowBatch = RequiredCell(grid, r, cBatch)
++ rowSloc = RequiredCell(grid, r, cSloc)
++ rowGM = RequiredCell(grid, r, cGM)
++ rowParent = RequiredCell(grid, r, cParent)
++ ob = RequiredCell(grid, r, cDel)
++ qtyText = RequiredCell(grid, r, cQty)
++ rowRefSTO = ""
++ If cSTO <> "" Then rowRefSTO = Trim$(RequiredCell(grid, r, cSTO))
++ 
++ ' Dieu kien cot loi per chi dao nguoi dung: rowSloc = "" (chua co SLoc) va rowBatch = "" (chua ai xu ly)
++ If rowBatch = "" And rowSloc = "" And (rowGM = "A" Or rowGM = "") And val(rowParent) = 0 Then
++  If deficits.exists(mat) Or (targetSTO <> "" And rowRefSTO = targetSTO) Then
++   If Not toDeleteDict.exists(ob) Then
++    toDeleteDict.Add ob, Array(mat, qtyText, rowRefSTO)
++    ModuleLog.WriteLog "DRAFT_3001_COLLECT_OB", "Gom draft 3001 OB=" & ob & " (no SLoc, unpicked) for Material=" & mat & "; STO=" & rowRefSTO
+    End If
+   End If
+  End If
+ Next r
+ 
+-' Collect unique OBs/Items to delete
+-Set toDeleteDict = CreateObject("Scripting.Dictionary")
+-For Each matKey In candidatesByMat.keys
+- bestOB = CStr(candidatesByMat(matKey)(0))
+- bestQty = CDbl(candidatesByMat(matKey)(1))
+- If Not toDeleteDict.exists(bestOB) Then
+-  toDeleteDict.Add bestOB, Array(CStr(matKey), bestQty)
+- End If
+-Next matKey
+-
+ countSuccess = 0
+-For Each delOBKey In toDeleteDict.keys
+- bestOB = CStr(delOBKey)
+- mat = CStr(toDeleteDict(delOBKey)(0))
+- bestQty = CDbl(toDeleteDict(delOBKey)(1))
+- ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETE", "Processing candidate OB=" & bestOB & " for Material=" & mat & "; Qty=" & bestQty
+- delStatus = SAPX_DeleteDraftOB(ses, bestOB, mat, "", True)
+- ' RC58 Bug 1: Accept both whole-OB (DELETE_VERIFIED) and item-level (DELETE_ITEM_OK) deletion
+- If delStatus = "DELETE_VERIFIED" Or delStatus = "DELETE_ITEM_OK" Then
+-  countSuccess = countSuccess + 1
+-  ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Released OB=" & bestOB & " for Material=" & mat & " (Qty=" & bestQty & ")"
+- Else
+-  ModuleLog.WriteLog "DRAFT_3001_RELEASE_FAIL", "Failed to release OB=" & bestOB & "; status=" & delStatus
+- End If
+-Next delOBKey
++If toDeleteDict.count > 0 Then
++ ModuleLog.WriteLog "DRAFT_3001_BATCH_START", "Found " & toDeleteDict.count & " unique draft 3001 OB(s) without SLoc to delete in single VL02N batch"
++ SAPX_Navigate ses, "VL02N"
++ For Each delOBKey In toDeleteDict.keys
++  bestOB = CStr(delOBKey)
++  mat = CStr(toDeleteDict(delOBKey)(0))
++  ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETE", "Deleting draft 3001 OB=" & bestOB & " for Material=" & mat
++  delStatus = SAPX_DeleteDraftOB(ses, bestOB, "", "", True)
++  If delStatus = "DELETE_VERIFIED" Then
++   countSuccess = countSuccess + 1
++   ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Successfully deleted draft 3001 OB=" & bestOB & " (" & countSuccess & "/" & toDeleteDict.count & ")"
++  Else
++   ModuleLog.WriteLog "DRAFT_3001_RELEASE_FAIL", "Failed to delete OB=" & bestOB & "; status=" & delStatus
++  End If
++ Next delOBKey
++Else
++ ModuleLog.WriteLog "DRAFT_3001_BATCH_NONE", "No draft 3001 OBs found without SLoc for deficits"
++End If
+ 
+ If countSuccess > 0 Then
+  ModuleLog.WriteLog "RELEASE_3001_BATCH_SYNC", "Waiting 2s for SAP ATP synchronization after deleting " & countSuccess & " draft OB(s)"
+
