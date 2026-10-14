@@ -1,0 +1,144 @@
+--- RC60/ModuleMain.bas
++++ RC61/ModuleMain.bas
+@@ -4113,11 +4113,32 @@
+  stage = "AUTO_RETRY_VL10D"
+  Dim retryPlans As Object, rMat As Variant, rPlanned As Variant
+  Set retryPlans = CreateObject("Scripting.Dictionary")
++ 
++ ' RC61: Bao toan receipts cua Luot 1 va trich xuat danh sach OB da tao de tranh trung lap
++ Dim priorVerifiedReceipts As String
++ priorVerifiedReceipts = Trim$(ModuleHelper.ToolConfig("VL10D_GROUP_OB_RECEIPTS", ""))
++ Dim priorOBs As String: priorOBs = ""
++ If priorVerifiedReceipts <> "" Then
++  Dim pRow As Variant, pFlds As Variant
++  For Each pRow In Split(Replace(priorVerifiedReceipts, vbCr, ""), vbLf)
++   pFlds = Split(Trim$(CStr(pRow)), "|")
++   If UBound(pFlds) >= 3 Then
++    If InStr(priorOBs, "|" & pFlds(3) & "|") = 0 Then
++     priorOBs = priorOBs & "|" & pFlds(3) & "|"
++    End If
++   End If
++  Next pRow
++ End If
++ 
+  For Each rMat In deficits.keys
+   If Not mEDCCreatePlan Is Nothing Then
+    If mEDCCreatePlan.exists(CStr(rMat)) Then
+     rPlanned = mEDCCreatePlan(CStr(rMat))
+     rPlanned(3) = CDbl(deficits(rMat))
++    ' Them cac OB cua Luot 1 vao baseline de EDCDiscoverReceiptsFromVL06O khong nhan nham OB cu
++    If priorOBs <> "" Then
++     rPlanned(8) = CStr(rPlanned(8)) & priorOBs
++    End If
+     retryPlans.Add CStr(rMat), rPlanned
+    End If
+   End If
+@@ -4138,6 +4159,8 @@
+   Next rMat
+   PutConfig "VL10D_GROUP_PENDING", retryRecords
+   PutConfig "VL10D_PENDING_KEY", "BATCH|" & reqId & "|" & sto
++  ' RC61: Xoa trang VL10D_GROUP_OB_RECEIPTS de luot retry tu dong scan kham pha OB moi sinh
++  PutConfig "VL10D_GROUP_OB_RECEIPTS", ""
+   ThisWorkbook.Save
+   
+   ModuleSAP.EDC4007_PrepareGroup sto, retryPlans
+@@ -4146,13 +4169,42 @@
+   EDCRefreshGroupOB InputProducts()
+   Dim retryVerified As Object: Set retryVerified = CreateObject("Scripting.Dictionary")
+   EDCVerifyGroup retryPlans, retryDeficits, False, retryVerified
++  
++  ' RC61: Hop nhat danh sach chung tu OB giua Luot 1 va Luot Retry
++  Dim retryReceipts As String
++  retryReceipts = Trim$(ModuleHelper.ToolConfig("VL10D_GROUP_OB_RECEIPTS", ""))
++  If priorVerifiedReceipts <> "" Then
++   If retryReceipts <> "" Then
++    PutConfig "VL10D_GROUP_OB_RECEIPTS", priorVerifiedReceipts & vbLf & retryReceipts
++   Else
++    PutConfig "VL10D_GROUP_OB_RECEIPTS", priorVerifiedReceipts
++   End If
++  End If
++  
+   If retryVerified.count > 0 Then
+    EDCEnsureGroupInSnapshot retryVerified
+    EDCCommitGroup retryVerified, False
+    mChecked = True
+-   ' Merge retryVerified into verifiedPlans
++   ' RC61: Cong don so luong da xac nhan (cong don Luot 1 va Luot Retry)
+    For Each rMat In retryVerified.keys
+-    verifiedPlans(CStr(rMat)) = retryVerified(rMat)
++    If verifiedPlans.exists(CStr(rMat)) Then
++     Dim vPlan As Variant: vPlan = verifiedPlans(CStr(rMat))
++     Dim rPlan As Variant: rPlan = retryVerified(CStr(rMat))
++     vPlan(3) = CDbl(vPlan(3)) + CDbl(rPlan(3))
++     verifiedPlans(CStr(rMat)) = vPlan
++     If Not mEDCCreatePlan Is Nothing Then
++      If mEDCCreatePlan.exists(CStr(rMat)) Then mEDCCreatePlan(CStr(rMat)) = vPlan
++     End If
++    Else
++     verifiedPlans(CStr(rMat)) = retryVerified(rMat)
++    End If
++    ' Xoa note thieu tren sheet INPUT neu ma da du 100% so luong
++    If plans.exists(CStr(rMat)) Then
++     If CDbl(verifiedPlans(CStr(rMat))(3)) >= CDbl(plans(CStr(rMat))(3)) Then
++      If mEDCWaitByMat.exists(CStr(rMat)) Then mEDCWaitByMat.Remove CStr(rMat)
++      EDCSetInputNote CStr(rMat), ""
++     End If
++    End If
+    Next rMat
+   End If
+  End If
+@@ -4374,17 +4426,26 @@
+ For Each mat In plans.keys: totals(CStr(mat)) = 0#: Next mat
+ For Each row In Split(Replace(records, vbCr, ""), vbLf)
+  fields = Split(Trim$(CStr(row)), "|")
+- If UBound(fields) <> 5 Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_INVALID: expected six fields."
+- If CStr(fields(0)) <> CStr(pending(1)) Or CStr(fields(1)) <> CStr(pending(2)) Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_SCOPE_MISMATCH: Request/STO."
+- If Not plans.exists(CStr(fields(2))) Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_MATERIAL_MISMATCH: " & fields(2)
+- If CStr(fields(5)) <> "VL10D_CREATION_LOG" And CStr(fields(5)) <> "VL06O_AUTO_DISCOVERED" Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_SOURCE_REQUIRED: exact creation log or verified VL06O auto-discovery only."
+- ob = CStr(fields(3)): deliveryItem = CStr(fields(4))
+- If Len(ob) <> 10 Or Not ob Like "##########" Or val(deliveryItem) <= 0 Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_ID_INVALID: " & ob & "/" & deliveryItem
+- If seen.exists(ob & "|" & deliveryItem) Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_DUPLICATE: " & ob & "/" & deliveryItem
+- seen.Add ob & "|" & deliveryItem, True
+- planned = plans(CStr(fields(2)))
+- If InStr(CStr(planned(8)), "|" & ob & "|") <> 0 Then Err.Raise vbObjectError + 4269, , "GROUP_RECEIPT_BASELINE_ID: " & ob
+- wanted.Add ob & "|" & deliveryItem, fields
++ If UBound(fields) = 5 Then
++  ' Scope match: chi xet chung tu dung Request va STO
++  If CStr(fields(0)) = CStr(pending(1)) And CStr(fields(1)) = CStr(pending(2)) Then
++   ' RC61: Bo qua dong receipt cua ma khong thuoc ke hoach xac nhan hien tai (tranh loi MATERIAL_MISMATCH)
++   If plans.exists(CStr(fields(2))) Then
++    If CStr(fields(5)) = "VL10D_CREATION_LOG" Or CStr(fields(5)) = "VL06O_AUTO_DISCOVERED" Then
++     ob = CStr(fields(3)): deliveryItem = CStr(fields(4))
++     If Len(ob) = 10 And ob Like "##########" And val(deliveryItem) > 0 Then
++      If Not seen.exists(ob & "|" & deliveryItem) Then
++       seen.Add ob & "|" & deliveryItem, True
++       planned = plans(CStr(fields(2)))
++       If InStr(CStr(planned(8)), "|" & ob & "|") = 0 Then
++        wanted.Add ob & "|" & deliveryItem, fields
++       End If
++      End If
++     End If
++    End If
++   End If
++  End If
++ End If
+ Next row
+ For Each row In wanted.keys
+  fields = wanted(CStr(row)): ob = CStr(fields(3)): deliveryItem = CStr(fields(4))
+@@ -4504,8 +4565,13 @@
+ For Each mat In plans.keys: totals(CStr(mat)) = 0#: Next mat
+ For Each row In Split(Replace(Trim$(ModuleHelper.ToolConfig("VL10D_GROUP_OB_RECEIPTS", "")), vbCr, ""), vbLf)
+  fields = Split(CStr(row), "|")
+- key = CStr(fields(3)) & "|" & CStr(fields(4))
+- expected.Add key, CStr(fields(2))
++ If UBound(fields) >= 4 Then
++  ' RC61: Chi them key vao expected neu ma thuoc danh sach plans can dam bao
++  If plans.exists(CStr(fields(2))) Then
++   key = CStr(fields(3)) & "|" & CStr(fields(4))
++   If Not expected.exists(key) Then expected.Add key, CStr(fields(2))
++  End If
++ End If
+ Next row
+ For r = 6 To ws.Cells(ws.rows.count, 1).End(xlUp).row
+  ob = CStr(ws.Cells(r, 1).Value2): item = CStr(ws.Cells(r, 2).Value2)
+
