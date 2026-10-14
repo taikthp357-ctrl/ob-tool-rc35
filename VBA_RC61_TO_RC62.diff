@@ -1,0 +1,432 @@
+--- RC61/ModuleSAP.bas
++++ RC62/ModuleSAP.bas
+@@ -5620,6 +5620,111 @@
+  SAPX_DeleteDraftOB = "DELETE_FAILED"
+ End Function
+ 
++' =========================================================================
++' RC62: THUAT TOAN TOI UU HOA LUA CHON TO HOP OB CAN XOA (SUBSET-SUM)
++' Uu tien xoa vua du; neu khong the vua du thi chon to hop OB co tong Qty vuot nhu cau it nhat.
++' =========================================================================
++Private Sub BacktrackSubset(ByRef arrQty() As Double, ByRef suffixSums() As Double, ByVal n As Long, _
++                            ByVal needQty As Double, ByVal idx As Long, ByVal currentSum As Double, _
++                            ByRef curIndices() As Long, ByVal curCount As Long, _
++                            ByRef bestSurplus As Double, ByRef bestCount As Long, _
++                            ByRef bestIndices() As Long, ByRef bestIdxCount As Long)
++    Dim surplus As Double: surplus = currentSum - needQty
++    If surplus >= 0# Then
++        If (surplus < bestSurplus) Or (surplus = bestSurplus And curCount < bestCount) Then
++            bestSurplus = surplus
++            bestCount = curCount
++            bestIdxCount = curCount
++            Dim k As Long
++            For k = 0 To curCount - 1
++                bestIndices(k) = curIndices(k)
++            Next k
++        End If
++        Exit Sub
++    End If
++    
++    If currentSum + suffixSums(idx) < needQty Then Exit Sub
++    
++    Dim i As Long, q As Double, newSurplus As Double
++    For i = idx To n - 1
++        q = arrQty(i)
++        newSurplus = (currentSum + q) - needQty
++        If newSurplus >= 0# And newSurplus > bestSurplus Then
++            ' Bo qua nhanh nay neu surplus da lon hon bestSurplus
++        Else
++            curIndices(curCount) = i
++            BacktrackSubset arrQty, suffixSums, n, needQty, i + 1, currentSum + q, _
++                            curIndices, curCount + 1, bestSurplus, bestCount, bestIndices, bestIdxCount
++            If bestSurplus = 0# And bestCount = 1 Then Exit Sub
++        End If
++    Next i
++End Sub
++
++Private Function OptimalOBSubset(ByVal candOBs As Collection, ByVal candQtys As Collection, ByVal needQty As Double) As Collection
++    Dim n As Long: n = candOBs.count
++    Set OptimalOBSubset = New Collection
++    If n = 0 Then Exit Function
++    
++    Dim totalAvail As Double, i As Long
++    For i = 1 To n
++        totalAvail = totalAvail + CDbl(candQtys(i))
++    Next i
++    
++    ' Neu tong so luong nho hon hoac bang can thiet, chon toan bo
++    If totalAvail <= needQty Then
++        For i = 1 To n
++            OptimalOBSubset.Add CStr(candOBs(i))
++        Next i
++        Exit Function
++    End If
++    
++    Dim arrOB() As String, arrQty() As Double
++    ReDim arrOB(0 To n - 1), arrQty(0 To n - 1)
++    For i = 0 To n - 1
++        arrOB(i) = CStr(candOBs(i + 1))
++        arrQty(i) = CDbl(candQtys(i + 1))
++    Next i
++    
++    ' Sap xep giam dan theo so luong de toi uu branch-and-bound
++    Dim j As Long, tmpOB As String, tmpQty As Double
++    For i = 0 To n - 2
++        For j = i + 1 To n - 1
++            If arrQty(j) > arrQty(i) Then
++                tmpQty = arrQty(i): arrQty(i) = arrQty(j): arrQty(j) = tmpQty
++                tmpOB = arrOB(i): arrOB(i) = arrOB(j): arrOB(j) = tmpOB
++            End If
++        Next j
++    Next i
++    
++    Dim suffixSums() As Double
++    ReDim suffixSums(0 To n)
++    suffixSums(n) = 0#
++    For i = n - 1 To 0 Step -1
++        suffixSums(i) = suffixSums(i + 1) + arrQty(i)
++    Next i
++    
++    Dim bestSurplus As Double, bestCount As Long
++    bestSurplus = 1E+30: bestCount = 999999
++    Dim bestIndices() As Long, bestIdxCount As Long
++    ReDim bestIndices(0 To n - 1)
++    bestIdxCount = 0
++    Dim curIndices() As Long
++    ReDim curIndices(0 To n - 1)
++    
++    BacktrackSubset arrQty, suffixSums, n, needQty, 0, 0#, curIndices, 0, _
++                    bestSurplus, bestCount, bestIndices, bestIdxCount
++                    
++    If bestIdxCount > 0 Then
++        For i = 0 To bestIdxCount - 1
++            OptimalOBSubset.Add arrOB(bestIndices(i))
++        Next i
++    Else
++        For i = 0 To n - 1
++            OptimalOBSubset.Add arrOB(i)
++        Next i
++    End If
++End Function
++
+ Public Function SAPX_FindAndReleaseDraft3001OB_Batch(ByVal deficits As Object, Optional ByVal targetSTO As String = "") As Long
+ Dim ses As Object, ctl As Object, grid As Object, dfrom As Date
+ Dim ids As Collection, ni As Object, nc As Object
+@@ -5629,9 +5734,16 @@
+ Dim r As Long, n As Long, mat As String, ob As String, rowBatch As String, rowSloc As String
+ Dim rowGM As String, rowParent As String, qtyText As String, qty As Double, reason As String
+ Dim ship3001 As String, sploc3093 As String, curUser As String
+-Dim candidatesByMat As Object, matKey As Variant, candScore As Double, rowCreator As String, rowRefSTO As String
+-Dim bestScore As Double, bestOB As String, bestQty As Double, diff As Double, deficitQty As Double
+-Dim toDeleteDict As Object, delOBKey As Variant, delItemKey As Variant, delStatus As String, countSuccess As Long
++Dim rowCreator As String, rowRefSTO As String
++Dim toDeleteDict As Object, delOBKey As Variant, delStatus As String, countSuccess As Long
++Dim bestOB As String
++Dim obItemsByOB As Object, obMatMap As Object, obSTOMap As Object
++Dim mDictInOB As Object, oChk As Variant, alreadyIn As Boolean
++Dim remDeficits As Object, matKey As Variant, needQty As Double
++Dim finalDeleteOBs As Object
++Dim candOBList As Collection, candQtyList As Collection, candOB As Variant
++Dim selectedSubset As Collection, selOB As Variant, selQty As Double
++Dim mSubDict As Object, mItem As Variant, qImpact As Double
+ 
+ On Error GoTo Failed
+ If deficits Is Nothing Then Exit Function
+@@ -5698,11 +5810,13 @@
+ n = CLng(grid.rowCount)
+ ModuleLog.WriteLog "VL06O_3001_BATCH_FILTER", "Total rows for " & deficits.count & " deficit materials: " & n
+ 
+-curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_CURRENT_USER", "")))
+-If curUser = "" Then curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_USER", "")))
+-
+-' RC60: Gom tat ca cac draft OB 3001 khong co SLoc va chua ai xu ly cho toan bo danh sach ma thieu
+-Set toDeleteDict = CreateObject("Scripting.Dictionary")
++' =========================================================================
++' RC62: THU THAP TOAN BO CAC UNPICKED/NO-SLOC DRAFT OB CUNG CAC MAT BEN TRONG
++' =========================================================================
++Set obItemsByOB = CreateObject("Scripting.Dictionary")
++Set obMatMap = CreateObject("Scripting.Dictionary")
++Set obSTOMap = CreateObject("Scripting.Dictionary")
++
+ For r = 0 To n - 1
+  SAPX_EnsureGridRowVisible grid, r
+  mat = RequiredCell(grid, r, cMat)
+@@ -5715,35 +5829,107 @@
+  rowRefSTO = ""
+  If cSTO <> "" Then rowRefSTO = Trim$(RequiredCell(grid, r, cSTO))
+  
+- ' Dieu kien cot loi per chi dao nguoi dung: rowSloc = "" (chua co SLoc) va rowBatch = "" (chua ai xu ly)
+  If rowBatch = "" And rowSloc = "" And (rowGM = "A" Or rowGM = "") And val(rowParent) = 0 Then
+-  If deficits.exists(mat) Or (targetSTO <> "" And rowRefSTO = targetSTO) Then
+-   If Not toDeleteDict.exists(ob) Then
+-    toDeleteDict.Add ob, Array(mat, qtyText, rowRefSTO)
+-    ModuleLog.WriteLog "DRAFT_3001_COLLECT_OB", "Gom draft 3001 OB=" & ob & " (no SLoc, unpicked) for Material=" & mat & "; STO=" & rowRefSTO
++  If ModuleHelper.ParseSAPIntegerQty(qtyText, qty, reason) And qty > 0# Then
++   If Not obItemsByOB.exists(ob) Then
++    Set obItemsByOB(ob) = CreateObject("Scripting.Dictionary")
++    obSTOMap(ob) = rowRefSTO
+    End If
++   Set mDictInOB = obItemsByOB(ob)
++   If mDictInOB.exists(mat) Then
++    mDictInOB(mat) = CDbl(mDictInOB(mat)) + qty
++   Else
++    mDictInOB(mat) = qty
++   End If
++   
++   If Not obMatMap.exists(mat) Then Set obMatMap(mat) = New Collection
++   alreadyIn = False
++   For Each oChk In obMatMap(mat)
++    If CStr(oChk) = ob Then alreadyIn = True: Exit For
++   Next oChk
++   If Not alreadyIn Then obMatMap(mat).Add ob
+   End If
+  End If
+ Next r
+ 
++' =========================================================================
++' RC62: LAP KE HOACH XOA RIENG CHO TUNG MA & TINH TOAN TOAN BO ANH HUONG DA MA
++' =========================================================================
++Set remDeficits = CreateObject("Scripting.Dictionary")
++For Each matKey In deficits.keys
++ remDeficits(CStr(matKey)) = CDbl(deficits(matKey))
++Next matKey
++
++Set finalDeleteOBs = CreateObject("Scripting.Dictionary")
++ModuleLog.WriteLog "RC62_PLAN_START", "Planning optimal 3001 OB release for " & deficits.count & " deficit materials"
++
++For Each matKey In deficits.keys
++ mat = CStr(matKey)
++ needQty = CDbl(remDeficits(mat))
++ 
++ If needQty > 0# Then
++  If obMatMap.exists(mat) Then
++   Set candOBList = New Collection
++   Set candQtyList = New Collection
++   For Each candOB In obMatMap(mat)
++    If Not finalDeleteOBs.exists(CStr(candOB)) Then
++     candOBList.Add CStr(candOB)
++     candQtyList.Add CDbl(obItemsByOB(CStr(candOB))(mat))
++    End If
++   Next candOB
++   
++   If candOBList.count > 0 Then
++    Set selectedSubset = OptimalOBSubset(candOBList, candQtyList, needQty)
++    
++    For Each selOB In selectedSubset
++     If Not finalDeleteOBs.exists(CStr(selOB)) Then
++      selQty = CDbl(obItemsByOB(CStr(selOB))(mat))
++      finalDeleteOBs.Add CStr(selOB), Array(mat, selQty, obSTOMap(CStr(selOB)))
++      ModuleLog.WriteLog "RC62_SELECT_OB", "Selected draft 3001 OB=" & selOB & " for Material=" & mat & " (Qty=" & selQty & ")"
++      
++      ' Nguyen tac 2: Tinh toan toan bo anh huong da ma tren chung tu
++      Set mSubDict = obItemsByOB(CStr(selOB))
++      For Each mItem In mSubDict.keys
++       If remDeficits.exists(CStr(mItem)) Then
++        qImpact = CDbl(mSubDict(mItem))
++        remDeficits(CStr(mItem)) = remDeficits(CStr(mItem)) - qImpact
++        ModuleLog.WriteLog "RC62_MULTI_MAT_IMPACT", "OB=" & selOB & " also releases " & qImpact & " of Material=" & mItem & "; Remaining deficit=" & remDeficits(CStr(mItem))
++       End If
++      Next mItem
++     End If
++    Next selOB
++   Else
++    ModuleLog.WriteLog "RC62_ALL_CANDIDATES_USED", "Material=" & mat & " candidates already allocated"
++   End If
++  Else
++   ModuleLog.WriteLog "RC62_NO_CANDIDATES", "Material=" & mat & " has no draft 3001 OBs in VL06O"
++  End If
++ Else
++  ModuleLog.WriteLog "RC62_MAT_ALREADY_FULFILLED", "Material=" & mat & " deficit already fulfilled (<=0) by previous multi-material OB(s)"
++ End If
++Next matKey
++
++' =========================================================================
++' RC62: THUC HIEN XOA NGUYEN OB (btn[14]) QUA VL02N CHO TO HOP DA CHON
++' =========================================================================
+ countSuccess = 0
+-If toDeleteDict.count > 0 Then
+- ModuleLog.WriteLog "DRAFT_3001_BATCH_START", "Found " & toDeleteDict.count & " unique draft 3001 OB(s) without SLoc to delete in single VL02N batch"
++If finalDeleteOBs.count > 0 Then
++ ModuleLog.WriteLog "DRAFT_3001_BATCH_START", "Found " & finalDeleteOBs.count & " optimal draft 3001 OB(s) without SLoc to delete in single VL02N batch"
+  SAPX_Navigate ses, "VL02N"
+- For Each delOBKey In toDeleteDict.keys
++ For Each delOBKey In finalDeleteOBs.keys
+   bestOB = CStr(delOBKey)
+-  mat = CStr(toDeleteDict(delOBKey)(0))
++  mat = CStr(finalDeleteOBs(delOBKey)(0))
+   ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETE", "Deleting draft 3001 OB=" & bestOB & " for Material=" & mat
+   delStatus = SAPX_DeleteDraftOB(ses, bestOB, "", "", True)
+   If delStatus = "DELETE_VERIFIED" Then
+    countSuccess = countSuccess + 1
+-   ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Successfully deleted draft 3001 OB=" & bestOB & " (" & countSuccess & "/" & toDeleteDict.count & ")"
++   ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Successfully deleted draft 3001 OB=" & bestOB & " (" & countSuccess & "/" & finalDeleteOBs.count & ")"
+   Else
+    ModuleLog.WriteLog "DRAFT_3001_RELEASE_FAIL", "Failed to delete OB=" & bestOB & "; status=" & delStatus
+   End If
+  Next delOBKey
+ Else
+- ModuleLog.WriteLog "DRAFT_3001_BATCH_NONE", "No draft 3001 OBs found without SLoc for deficits"
++ ModuleLog.WriteLog "DRAFT_3001_BATCH_NONE", "No draft 3001 OBs needed to delete for deficits"
+ End If
+ 
+ If countSuccess > 0 Then
+@@ -5761,149 +5947,16 @@
+ End Function
+ 
+ Public Function SAPX_FindAndReleaseDraft3001OB(ByVal targetMat As String, ByVal deficitQty As Double, Optional ByVal targetSTO As String = "") As String
+-Dim ses As Object, ctl As Object, grid As Object, dfrom As Date
+-Dim ids As Collection, ni As Object, nc As Object
+-Dim cDel As String, cItem As String, cMat As String, cQty As String
+-Dim cBatch As String, cSloc As String, cGM As String, cParent As String
+-Dim cSTO As String, cCreator As String
+-Dim r As Long, n As Long, mat As String, ob As String, rowBatch As String, rowSloc As String
+-Dim rowGM As String, rowParent As String, qtyText As String, qty As Double, reason As String
+-Dim bestOB As String, bestQty As Double, minDiff As Double, diff As Double, candidateCount As Long
+-Dim ship3001 As String, sploc3093 As String, singleProd As Object, releaseSuccess As Boolean
+-
+-On Error GoTo Failed
+-Set ses = SAPX_GetSessionForTcode("VL06O")
+-If ses Is Nothing Then Exit Function
+-
+-ship3001 = ModuleHelper.ToolConfig("PLANT_3001_SHIP_TO", "3001")
+-sploc3093 = ModuleHelper.ToolConfig("VL06O_SHIPPING_POINT", "3093")
+-
+-SAPX_Navigate ses, "VL06O"
+-VL6_OpenSelection ses
+-
+-If Not VL6_SetSelectionShipTo(ses, ship3001) Then
+- ModuleLog.WriteLog "VL06O_3001_SELECTION_ERR", "Could not set Ship-to=" & ship3001
+- Exit Function
+-End If
+-
+-Set ctl = SAPX_FindById(ses, ModuleHelper.ToolConfig("VL06O_SHIPPING_POINT_ID", "wnd[0]/usr/ctxtIF_VSTEL-LOW"))
+-If Not ctl Is Nothing Then SAPX_SetValue ctl, sploc3093
+-Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIF_VSTEL-HIGH")
+-If Not ctl Is Nothing Then ctl.text = ""
+-
+-dfrom = DateAdd("d", -60, Date)
+-Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_WADAT-LOW")
+-If Not ctl Is Nothing Then ctl.text = Format$(dfrom, "dd.mm.yyyy")
+-Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_WADAT-HIGH")
+-If Not ctl Is Nothing Then ctl.text = Format$(DateAdd("d", 60, Date), "dd.mm.yyyy")
+-
+-Set ctl = SAPX_FindById(ses, "wnd[0]/usr/ctxtIT_WBSTK-LOW")
+-If Not ctl Is Nothing Then ctl.text = "A"
+-
+-ses.findById("wnd[0]/tbar[1]/btn[8]").Press
+-If Not SAPX_WaitIdle(ses, 30) Then Exit Function
+-
+-If InStr(1, SAPX_StatusText(ses), "no deliveries", vbTextCompare) > 0 Or _
+-   InStr(1, SAPX_StatusText(ses), "no data", vbTextCompare) > 0 Or _
+-   InStr(1, SAPX_StatusText(ses), "keine lieferungen", vbTextCompare) > 0 Then
+- ModuleLog.WriteLog "VL06O_3001_EMPTY", "No deliveries found for 3001 in 60-day window"
+- Exit Function
+-End If
+-
+-Set grid = VL6_EnsureItemGrid(ses)
+-If grid Is Nothing Then Exit Function
+-
+-SAPX_BuildColumnCatalogFast grid, ids, ni, nc
+-cDel = SAPX_ResolveColumnFast("VBELN", "VBELN,DELIVERY", True, ids, ni, nc)
+-cItem = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL06O_COL_ITEM", "POSNR"), "POSNR,DELIVERY ITEM,ITEM", True, ids, ni, nc)
+-cMat = SAPX_ResolveColumnFast("MATNR", "MATNR,MATERIAL", True, ids, ni, nc)
+-cQty = SAPX_ResolveColumnFast("LFIMG", "LFIMG,DELIVERY QTY,DLV.QTY", True, ids, ni, nc)
+-cBatch = SAPX_ResolveColumnFast("S_CHARG", "S_CHARG,CHARG,BATCH", True, ids, ni, nc)
+-cSloc = SAPX_ResolveColumnFast("LGORT", "LGORT,STORAGE LOCATION", True, ids, ni, nc)
+-cGM = SAPX_ResolveColumnFast("WBSTA", "WBSTA,WBSTK,GOODS MOVEMENT STATUS", True, ids, ni, nc)
+-cParent = SAPX_ResolveColumnFast("UECHA", "UECHA,HIGHER LEVEL BATCH ITEM", False, ids, ni, nc)
+-cSTO = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL06O_COL_STO", "VGBEL"), "VGBEL,REFERENCE DOCUMENT,PURCHASE ORDER", False, ids, ni, nc)
+-cCreator = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL06O_COL_CREATOR", "ERNAM"), "ERNAM,CREATED BY,USER", False, ids, ni, nc)
+-
+-Set singleProd = CreateObject("Scripting.Dictionary")
+-singleProd(targetMat) = True
+-VL6_ApplyALVFilter ses, grid, cMat, "", singleProd
+-Set grid = VL6_DirectGrid(ses)
+-If grid Is Nothing Then Exit Function
+-
+-n = CLng(grid.rowCount)
+-ModuleLog.WriteLog "VL06O_3001_FILTER", "Rows for Material=" & targetMat & ": " & n
+-
+-minDiff = 1E+30: bestOB = "": bestQty = 0: candidateCount = 0
+-Dim curUser As String
+-curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_CURRENT_USER", "")))
+-If curUser = "" Then curUser = UCase$(Trim$(ModuleHelper.ToolConfig("SAP_USER", "")))
+-
+-Dim bestScore As Double: bestScore = -1E+30
+-Dim candScore As Double, rowCreator As String, rowRefSTO As String
+-
+-For r = 0 To n - 1
+- SAPX_EnsureGridRowVisible grid, r
+- mat = RequiredCell(grid, r, cMat)
+- If StrComp(mat, targetMat, vbTextCompare) = 0 Then
+-  rowBatch = RequiredCell(grid, r, cBatch)
+-  rowSloc = RequiredCell(grid, r, cSloc)
+-  rowGM = RequiredCell(grid, r, cGM)
+-  rowParent = RequiredCell(grid, r, cParent)
+-  ob = RequiredCell(grid, r, cDel)
+-  qtyText = RequiredCell(grid, r, cQty)
+-  rowCreator = ""
+-  If cCreator <> "" Then rowCreator = UCase$(Trim$(RequiredCell(grid, r, cCreator)))
+-  rowRefSTO = ""
+-  If cSTO <> "" Then rowRefSTO = Trim$(RequiredCell(grid, r, cSTO))
+-  
+-  If rowBatch = "" And rowSloc = "" And (rowGM = "A" Or rowGM = "") And val(rowParent) = 0 Then
+-   If ModuleHelper.ParseSAPIntegerQty(qtyText, qty, reason) And qty > 0 Then
+-    candidateCount = candidateCount + 1
+-    diff = Abs(qty - deficitQty)
+-    ' Scoring: creator match +1000, target STO match +500, exact qty match
+-    candScore = -diff
+-    If curUser <> "" And rowCreator = curUser Then candScore = candScore + 1000#
+-    If targetSTO <> "" And rowRefSTO = targetSTO Then candScore = candScore + 500#
+-    ModuleLog.WriteLog "DRAFT_3001_CANDIDATE", "OB=" & ob & "; Mat=" & targetMat & "; Qty=" & qty & "; diff=" & diff & "; Creator=" & rowCreator & "; STO=" & rowRefSTO & "; score=" & candScore
+-    If candScore > bestScore Then
+-     bestScore = candScore
+-     minDiff = diff
+-     bestOB = ob
+-     bestQty = qty
++    Dim singleDef As Object
++    Set singleDef = CreateObject("Scripting.Dictionary")
++    singleDef.Add targetMat, deficitQty
++    Dim c As Long
++    c = SAPX_FindAndReleaseDraft3001OB_Batch(singleDef, targetSTO)
++    If c > 0 Then
++        SAPX_FindAndReleaseDraft3001OB = "BATCH_OK|" & CStr(c)
++    Else
++        SAPX_FindAndReleaseDraft3001OB = ""
+     End If
+-   End If
+-  End If
+- End If
+-Next r
+-
+-If bestOB <> "" And bestQty > 0 Then
+- ModuleLog.WriteLog "DRAFT_3001_SELECTED", "Selected candidate OB=" & bestOB & " (Qty=" & bestQty & "; minDiff=" & minDiff & ") for deficit=" & deficitQty
+- Dim delStatus As String
+- ' RC58 Bug 2: Pass targetMat to prevent accidental full-OB deletion on multi-item OBs
+- delStatus = SAPX_DeleteDraftOB(ses, bestOB, targetMat, "", True)
+- If delStatus = "DELETE_VERIFIED" Or delStatus = "DELETE_ITEM_OK" Then
+-  SAPX_FindAndReleaseDraft3001OB = bestOB & "|" & CStr(bestQty)
+-  ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Released OB=" & bestOB & " (Qty=" & bestQty & ")"
+- ElseIf delStatus = "WAIT_STO_LOCK" Then
+-  SAPX_FindAndReleaseDraft3001OB = "LOCK|" & bestOB
+-  ModuleLog.WriteLog "DRAFT_3001_STO_LOCKED", "STO locked by another user; cannot release OB=" & bestOB
+- ElseIf delStatus = "WAIT_OB_LOCK" Then
+-  SAPX_FindAndReleaseDraft3001OB = "LOCK|" & bestOB
+-  ModuleLog.WriteLog "DRAFT_3001_OB_LOCKED", "OB=" & bestOB & " is locked by another user"
+- Else
+-  SAPX_FindAndReleaseDraft3001OB = "FAIL|" & bestOB
+-  ModuleLog.WriteLog "DRAFT_3001_RELEASE_FAIL", "Failed to delete OB=" & bestOB & "; status=" & delStatus
+- End If
+-Else
+- ModuleLog.WriteLog "DRAFT_3001_NONE", "No unallocated/unpicked draft OB found for Material=" & targetMat
+-End If
+-
+-SAPX_Navigate ses, "VL06O"
+-Exit Function
+-Failed:
+- ModuleLog.WriteLog "DRAFT_3001_ERROR", Err.Number & "; " & Err.Description
+- SAPX_FindAndReleaseDraft3001OB = ""
+ End Function
+ 
+ ' =====================================================================
+
