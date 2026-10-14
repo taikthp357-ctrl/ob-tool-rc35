@@ -1,0 +1,516 @@
+--- RC62/ModuleMain.bas
++++ RC63/ModuleMain.bas
+@@ -1826,7 +1826,7 @@
+ 
+ Private Function ApplyOneOB(ByVal ob As String, ByVal items As Collection, ByRef message As String) As Boolean
+ 
+-Dim failure As String, state As String, kind As String
++Dim failure As String, state As String, kind As String, liveCheckStatus As String
+ 
+ On Error GoTo Fail
+ 
+@@ -1940,6 +1940,54 @@
+ 
+  message = failure: Exit Function
+ 
++End If
++
++' RC63: RECONCILE UNKNOWN / SAVED_UNVERIFIED / WMS VL589 DISTRIBUTION ERROR
++If (state = "UNKNOWN" Or state = "SAVED_UNVERIFIED" Or state = "" Or _
++    InStr(1, failure, "could not be distributed", vbTextCompare) > 0 Or _
++    InStr(1, failure, "VL589", vbTextCompare) > 0 Or _
++    InStr(1, failure, "UNKNOWN Save", vbTextCompare) > 0) Then
++    
++    liveCheckStatus = ModuleSAP.SAPX_CheckDeliveryStatus(ob)
++    
++    If liveCheckStatus = "NOT_FOUND" Then
++        ' Delivery vanished from SAP (e.g. rolled back by SAP due to VL589 distribution error)
++        mExcludedOB(ob) = True
++        Journal items, "UNSAVED", "OB_ABSENT_CONFIRMED: " & failure: PersistCheckpoint
++        ModuleLog.WriteLog "OB_ABSENT_CONFIRMED", "Delivery " & ob & " verified absent in VL03N; excluded and queued for replan: " & failure, ob
++        message = "OB_ABSENT_CONFIRMED: " & failure
++        ApplyOneOB = False
++        Exit Function
++    ElseIf liveCheckStatus = "EXISTS" Then
++        state = TryResolveConflict(ob, items)
++        If state = "DONE" Then
++            message = "EXTERNAL DONE: verified saved OB " & ob
++            Journal items, "DONE", message: PersistCheckpoint
++            ApplyOneOB = True
++            Exit Function
++        Else
++            mExcludedOB(ob) = True
++            Journal items, "UNSAVED", "WAIT_READBACK: " & failure: PersistCheckpoint
++            ModuleLog.WriteLog "OB_EXISTS_UNVERIFIED", "Delivery " & ob & " exists but unverified: " & failure, ob
++            message = "WAIT_READBACK: " & failure
++            ApplyOneOB = False
++            Exit Function
++        End If
++    ElseIf liveCheckStatus = "LOCKED" Then
++        Journal items, "UNSAVED", "WAIT_LOCK: " & failure: PersistCheckpoint
++        ModuleLog.WriteLog "OB_LOCKED_AFTER_SAVE", "Delivery " & ob & " locked: " & failure, ob
++        message = "WAIT_LOCK: " & failure
++        ApplyOneOB = False
++        Exit Function
++    Else
++        ' Graceful fallback without crashing whole process
++        mExcludedOB(ob) = True
++        Journal items, "UNSAVED", failure: PersistCheckpoint
++        ModuleLog.WriteLog "OB_STATUS_UNKNOWN", "Delivery " & ob & " status=" & liveCheckStatus & "; " & failure, ob
++        message = failure
++        ApplyOneOB = False
++        Exit Function
++    End If
+ End If
+ 
+ If state = "" Then state = "UNKNOWN"
+@@ -2286,12 +2334,52 @@
+ End Sub
+ 
+ Public Sub OB_Execute()
+-
+-If Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2)) = "2001" Then
+-    OB2001_Execute
++    If Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2)) = "2001" Then
++        OB2001_Execute
++        Exit Sub
++    End If
++    ExecuteAllocationsCore False
++End Sub
++
++Public Sub OB_RunAll()
++    Dim shipTo As String
++    shipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++    
++    If mRunning Then
++        MsgBox "He thong dang chay tien trinh khac. Vui long cho hoan tat.", vbExclamation
++        Exit Sub
++    End If
++    
++    ' Tu dong kich hoat MODE=APPLY cho che do ALL IN ONE
++    ModuleHelper.PutConfig "MODE", "APPLY"
++    
++    If shipTo = "2001" Then
++        OB2001_Check
++        OB2001_Execute
++        Exit Sub
++    End If
++    
++    If Not BeginRun("CHAY TAT CA (ALL IN ONE)") Then Exit Sub
++    
++    On Error GoTo FailAll
++    
++    BuildLivePlan
++    
++    EndRun
++    
++    If mChecked And mAlloc.count > 0 Then
++        ModuleLog.WriteLog "RUN_ALL_EXECUTE", "Check passed with " & mAlloc.count & " allocations; starting automated execution"
++        ExecuteAllocationsCore True
++    Else
++        MsgBox "ALL IN ONE hoan tat phan kiem tra/tao OB nhung chua co cap phat READY de ghi VL02N. Xem NOTE hoac LOG de biet chi tiet.", vbInformation
++    End If
+     Exit Sub
+-End If
+-
++
++FailAll:
++    ReportError "RUN_ALL", Err.Description
++End Sub
++
++Private Sub ExecuteAllocationsCore(ByVal isAllInOne As Boolean)
+ Dim groups As Object, a As Variant, k As Variant, items As Collection, mode As String, maxOB As Long, done As Long, msg As String, started As Double, failedText As String, retryMaterials As Object, material As Variant, first As Variant, retryGroups As Object, freshBlocked As Object, deferred As Object, heldMaterials As Object, rr As Long, pendingQty As Double, retryPass As Long, maxPasses As Long, nextDeferred As Object, waitSec As Long, waitDuration As Long
+ 
+ If mRunning Then Exit Sub
+@@ -2510,16 +2598,30 @@
+ 
+ mChecked = False
+ 
+-If mMissingOBWarnUser Then
+- ThisWorkbook.Worksheets("INPUT").Range("R22").Value2 = "DA LUU " & done & " OB; THIEU OB - NHAN NUT 1 TAO LAI VL10D"
+- PersistCheckpoint "EXCEL_SAVE_FINAL_SEC"
+- EndRun
+- MsgBox "Da Save " & done & " OB. CANH BAO: Thieu OB trong VL06O (OB cu bi loi/xoa). Vui long nhan nut 1 (KIEM TRA) de tao lai qua VL10D hoac mo VL10D kiem tra!", vbExclamation
++If isAllInOne Then
++ If mMissingOBWarnUser Then
++  ThisWorkbook.Worksheets("INPUT").Range("R22").Value2 = "ALL IN ONE: DA LUU " & done & " OB; THIEU OB - XEM LOG"
++  PersistCheckpoint "EXCEL_SAVE_FINAL_SEC"
++  EndRun
++  MsgBox "ALL IN ONE: Da Save " & done & " OB. CANH BAO: Con thieu OB trong VL06O. Vui long kiem tra lai NOTE/LOG!", vbExclamation
++ Else
++  ThisWorkbook.Worksheets("INPUT").Range("R22").Value2 = "ALL IN ONE THANH CONG: DA LUU " & done & " OB"
++  PersistCheckpoint "EXCEL_SAVE_FINAL_SEC"
++  EndRun
++  MsgBox "ALL IN ONE THANH CONG: Da tu dong kiem tra, tao va luu " & done & " OB vao SAP. Chi tiet xem tren sheet INPUT va LOG.", vbInformation
++ End If
+ Else
+- ThisWorkbook.Worksheets("INPUT").Range("R22").Value2 = "DA LUU " & done & " OB; XEM NOTE/LOG"
+- PersistCheckpoint "EXCEL_SAVE_FINAL_SEC"
+- EndRun
+- MsgBox "Da Save " & done & " OB. Nhan KIEM TRA de xem phan con lai. Da bao toan item ngoai ke hoach.", vbInformation
++ If mMissingOBWarnUser Then
++  ThisWorkbook.Worksheets("INPUT").Range("R22").Value2 = "DA LUU " & done & " OB; THIEU OB - NHAN NUT 1 TAO LAI VL10D"
++  PersistCheckpoint "EXCEL_SAVE_FINAL_SEC"
++  EndRun
++  MsgBox "Da Save " & done & " OB. CANH BAO: Thieu OB trong VL06O (OB cu bi loi/xoa). Vui long nhan nut 1 (KIEM TRA) de tao lai qua VL10D hoac mo VL10D kiem tra!", vbExclamation
++ Else
++  ThisWorkbook.Worksheets("INPUT").Range("R22").Value2 = "DA LUU " & done & " OB; XEM NOTE/LOG"
++  PersistCheckpoint "EXCEL_SAVE_FINAL_SEC"
++  EndRun
++  MsgBox "Da Save " & done & " OB. Nhan KIEM TRA de xem phan con lai. Da bao toan item ngoai ke hoach.", vbInformation
++ End If
+ End If
+ 
+ Exit Sub
+@@ -2561,7 +2663,7 @@
+ 
+ EndRun
+ 
+-ReportError "EXECUTE", failedText
++ReportError IIf(isAllInOne, "RUN_ALL_EXECUTE", "EXECUTE"), failedText
+ 
+ End Sub
+ 
+
+--- RC62/ModuleSAP.bas
++++ RC63/ModuleSAP.bas
+@@ -5482,16 +5482,12 @@
+ ' Neu la 4007 partial cleanup va co yeu cau xoa cap dong:
+ If targetMat <> "" Or targetItem <> "" Then
+  ' -------------------------------------------------------------
+- ' RC57 Khau 2: XOA CAP DONG (ITEM-LEVEL DELETE) CHO OB DA MA (4007)
++ ' RC57 Khau 2 / RC63: XOA CAP DONG (ITEM-LEVEL DELETE) CHO OB DA MA (4007)
+  ' Bao ve nguyen ven cac Item hop le da tao du, chi xoa dong thieu
+  ' -------------------------------------------------------------
+  Set snap = OverviewSnapshot(ses, False)
+  totalItems = 0
+  If Not snap Is Nothing Then totalItems = snap.count
+- ' -------------------------------------------------------------
+- ' RC57 Khau 2: XOA CAP DONG (ITEM-LEVEL DELETE) CHO OB DA MA
+- ' Bao ve nguyen ven cac Item hop le da tao du, chi xoa dong thieu
+- ' -------------------------------------------------------------
+  targetRow = -1
+  For r = 0 To totalItems - 1
+   Set fld = TableField(DeliveryOverview(ses), "LIPS-POSNR", r)
+@@ -5514,6 +5510,15 @@
+   tbl.getAbsoluteRow(CLng(targetRow)).selected = True
+   ModuleLog.WriteLog "DELETE_ITEM_START", "Multi-item OB=" & ob & " (" & totalItems & " items); Deleting Item " & itemPos & " Mat=" & itemMat & " at row " & targetRow
+   
++  ' RC63: Kiem tra SAP status bar xem row co duoc phep chon khong
++  sText = SAPX_StatusText(ses)
++  If InStr(1, sText, "cannot be selected", vbTextCompare) > 0 Or _
++     InStr(1, sText, "nicht markierbar", vbTextCompare) > 0 Then
++   ModuleLog.WriteLog "DELETE_ITEM_UNSUPPORTED", "Row cannot be selected: " & sText, ob
++   SAPX_DeleteDraftOB = "DELETE_ITEM_UNSUPPORTED"
++   Exit Function
++  End If
++  
+   ' Execute Menu Edit -> Delete Item (Shift+F2)
+   On Error Resume Next
+   ses.findById("wnd[0]/mbar/mp[1]/mi[4]").Select
+@@ -5523,6 +5528,14 @@
+   End If
+   On Error GoTo Failed
+   SAPX_WaitIdle ses, 15
++  
++  sText = SAPX_StatusText(ses)
++  If InStr(1, sText, "cannot be deleted", vbTextCompare) > 0 Or _
++     InStr(1, sText, "nicht gelöscht werden", vbTextCompare) > 0 Then
++   ModuleLog.WriteLog "DELETE_ITEM_UNSUPPORTED", "Item cannot be deleted: " & sText, ob
++   SAPX_DeleteDraftOB = "DELETE_ITEM_UNSUPPORTED"
++   Exit Function
++  End If
+   
+   ' Confirm deletion popup (btnSPOP-OPTION1)
+   If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
+@@ -5546,7 +5559,7 @@
+   End If
+   SAPX_WaitIdle ses, 20
+   
+-  ' RC58 Opt 1: Dismiss any post-save popup (warning/informational dialog)
++  ' Dismiss any post-save popup (warning/informational dialog)
+   If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
+    ses.findById("wnd[1]").sendVKey 0
+    SAPX_WaitIdle ses, 10
+@@ -5554,12 +5567,20 @@
+   
+   sText = SAPX_StatusText(ses)
+   sType = SAPX_StatusType(ses)
++  If sType = "E" Then
++   ModuleLog.WriteLog "DELETE_ITEM_FAIL", "Save failed after item delete for OB=" & ob & "; status=" & sText, ob
++   SAPX_DeleteDraftOB = "DELETE_ITEM_FAILED"
++   Exit Function
++  End If
++  
+   ModuleLog.WriteLog "DELETE_ITEM_OK", "OB=" & ob & "; Item=" & itemPos & "; Mat=" & itemMat & "; remaining items preserved; Msg=" & sText
+-  ' RC58 Bug 1/2: Return DELETE_ITEM_OK for item-level deletion
+   SAPX_DeleteDraftOB = "DELETE_ITEM_OK"
+   Exit Function
+  Else
+-  ModuleLog.WriteLog "DELETE_ITEM_NOT_FOUND", "Could not locate row for Mat=" & targetMat & "/Item=" & targetItem & " in OB=" & ob & "; fallback to full delete"
++  ' RC63: Target item not found in OB. Tuyet doi KHONG fallback sang DeleteWholeOB!
++  ModuleLog.WriteLog "DELETE_ITEM_NOT_FOUND", "Could not locate row for Mat=" & targetMat & "/Item=" & targetItem & " in OB=" & ob & "; abording item delete"
++  SAPX_DeleteDraftOB = "DELETE_ITEM_NOT_FOUND"
++  Exit Function
+  End If
+ End If
+ 
+@@ -5621,7 +5642,103 @@
+ End Function
+ 
+ ' =========================================================================
+-' RC62: THUAT TOAN TOI UU HOA LUA CHON TO HOP OB CAN XOA (SUBSET-SUM)
++' RC63: DELIVERY STATUS VERIFICATION VIA VL03N
++' Kiem tra trang thai thuc te cua Delivery khi gap su co Save/WMS VL589
++' =========================================================================
++Public Function SAPX_CheckDeliveryStatus(ByVal ob As String, Optional ByVal sesIn As Object = Nothing) As String
++    Dim fld As Object, sText As String, sType As String
++    Dim wndTitle As String
++    Dim ses As Object
++    On Error GoTo ErrHandler
++    
++    If Trim$(ob) = "" Then
++        SAPX_CheckDeliveryStatus = "INVALID_OB"
++        Exit Function
++    End If
++    
++    If Not sesIn Is Nothing Then
++        Set ses = sesIn
++    Else
++        Set ses = SAPX_GetSessionForTcode("VL03N")
++    End If
++    
++    If ses Is Nothing Then
++        SAPX_CheckDeliveryStatus = "NO_SESSION"
++        Exit Function
++    End If
++    
++    SAPX_Navigate ses, "VL03N"
++    If Not SAPX_WaitIdle(ses, 15) Then
++        SAPX_CheckDeliveryStatus = "NAV_TIMEOUT"
++        Exit Function
++    End If
++    
++    Set fld = SAPX_FindById(ses, "wnd[0]/usr/ctxtLIKP-VBELN")
++    If fld Is Nothing Then Set fld = DeliveryNumberField(ses)
++    If fld Is Nothing Then
++        SAPX_CheckDeliveryStatus = "FIELD_NOT_FOUND"
++        Exit Function
++    End If
++    
++    fld.text = ob
++    ses.findById("wnd[0]").sendVKey 0
++    If Not SAPX_WaitIdle(ses, 15) Then
++        SAPX_CheckDeliveryStatus = "TIMEOUT"
++        Exit Function
++    End If
++    
++    sText = SAPX_StatusText(ses)
++    sType = SAPX_StatusType(ses)
++    
++    ' Check if delivery does not exist (not in DB or archive)
++    If InStr(1, sText, "does not exist", vbTextCompare) > 0 Or _
++       InStr(1, sText, "nicht vorhanden", vbTextCompare) > 0 Or _
++       InStr(1, sText, "khong ton tai", vbTextCompare) > 0 Then
++        ModuleLog.WriteLog "VL03N_CHECK_NOT_FOUND", "Delivery " & ob & " does not exist: " & sText, ob
++        SAPX_CheckDeliveryStatus = "NOT_FOUND"
++        Exit Function
++    End If
++    
++    ' Check if delivery is locked
++    If InStr(1, sText, "is currently being processed by", vbTextCompare) > 0 Or _
++       InStr(1, sText, "wird bereits von", vbTextCompare) > 0 Or _
++       InStr(1, sText, "locked", vbTextCompare) > 0 Or _
++       InStr(1, sText, "gesperrt", vbTextCompare) > 0 Then
++        ModuleLog.WriteLog "VL03N_CHECK_LOCKED", "Delivery " & ob & " is locked: " & sText, ob
++        SAPX_CheckDeliveryStatus = "LOCKED"
++        Exit Function
++    End If
++    
++    If sType = "E" Then
++        ModuleLog.WriteLog "VL03N_CHECK_ERROR", "Delivery " & ob & " check error: " & sText, ob
++        SAPX_CheckDeliveryStatus = "ERROR: " & sText
++        Exit Function
++    End If
++    
++    wndTitle = ""
++    On Error Resume Next
++    wndTitle = CStr(ses.findById("wnd[0]").text)
++    On Error GoTo ErrHandler
++    
++    If InStr(1, wndTitle, "Display Outbound Delivery", vbTextCompare) > 0 Or _
++       InStr(1, wndTitle, "Outbound Delivery", vbTextCompare) > 0 Or _
++       InStr(1, wndTitle, "Lieferung anzeigen", vbTextCompare) > 0 Or _
++       Not DeliveryOverview(ses) Is Nothing Then
++        ModuleLog.WriteLog "VL03N_CHECK_EXISTS", "Delivery " & ob & " verified exists in SAP", ob
++        SAPX_CheckDeliveryStatus = "EXISTS"
++        Exit Function
++    End If
++    
++    SAPX_CheckDeliveryStatus = "UNKNOWN"
++    Exit Function
++    
++ErrHandler:
++    ModuleLog.WriteLog "VL03N_CHECK_EXCEPTION", ob & "; " & Err.Description, ob
++    SAPX_CheckDeliveryStatus = "EXCEPTION: " & Err.Description
++End Function
++
++' =========================================================================
++' RC62/RC63: THUAT TOAN TOI UU HOA LUA CHON TO HOP OB CAN XOA (SUBSET-SUM)
+ ' Uu tien xoa vua du; neu khong the vua du thi chon to hop OB co tong Qty vuot nhu cau it nhat.
+ ' =========================================================================
+ Private Sub BacktrackSubset(ByRef arrQty() As Double, ByRef suffixSums() As Double, ByVal n As Long, _
+@@ -5740,7 +5857,7 @@
+ Dim obItemsByOB As Object, obMatMap As Object, obSTOMap As Object
+ Dim mDictInOB As Object, oChk As Variant, alreadyIn As Boolean
+ Dim remDeficits As Object, matKey As Variant, needQty As Double
+-Dim finalDeleteOBs As Object
++Dim attemptedOBs As Object, confirmedRelease As Object
+ Dim candOBList As Collection, candQtyList As Collection, candOB As Variant
+ Dim selectedSubset As Collection, selOB As Variant, selQty As Double
+ Dim mSubDict As Object, mItem As Variant, qImpact As Double
+@@ -5810,9 +5927,6 @@
+ n = CLng(grid.rowCount)
+ ModuleLog.WriteLog "VL06O_3001_BATCH_FILTER", "Total rows for " & deficits.count & " deficit materials: " & n
+ 
+-' =========================================================================
+-' RC62: THU THAP TOAN BO CAC UNPICKED/NO-SLOC DRAFT OB CUNG CAC MAT BEN TRONG
+-' =========================================================================
+ Set obItemsByOB = CreateObject("Scripting.Dictionary")
+ Set obMatMap = CreateObject("Scripting.Dictionary")
+ Set obSTOMap = CreateObject("Scripting.Dictionary")
+@@ -5853,84 +5967,77 @@
+ Next r
+ 
+ ' =========================================================================
+-' RC62: LAP KE HOACH XOA RIENG CHO TUNG MA & TINH TOAN TOAN BO ANH HUONG DA MA
++' RC63: CONFIRMED 2-PHASE RELEASE COMMIT LOOP CHO DRAFT OB 3001
++' Chi tru remDeficits khi SAP xac nhan xoa thanh cong (DELETE_VERIFIED).
++' Neu OB bi khoa (WAIT_STO_LOCK/WAIT_OB_LOCK) hoac that bai, khong tru ton
++' ma tiep tuc tim to hop ung vien tiep theo de xoa cho den khi du nhu cau.
+ ' =========================================================================
+ Set remDeficits = CreateObject("Scripting.Dictionary")
++Set attemptedOBs = CreateObject("Scripting.Dictionary")
++Set confirmedRelease = CreateObject("Scripting.Dictionary")
++
+ For Each matKey In deficits.keys
+  remDeficits(CStr(matKey)) = CDbl(deficits(matKey))
++ confirmedRelease(CStr(matKey)) = 0#
+ Next matKey
+ 
+-Set finalDeleteOBs = CreateObject("Scripting.Dictionary")
+-ModuleLog.WriteLog "RC62_PLAN_START", "Planning optimal 3001 OB release for " & deficits.count & " deficit materials"
++countSuccess = 0
++ModuleLog.WriteLog "RC63_RELEASE_LOOP_START", "Starting confirmed 2-phase release loop for " & deficits.count & " materials"
+ 
+ For Each matKey In deficits.keys
+  mat = CStr(matKey)
+- needQty = CDbl(remDeficits(mat))
+  
+- If needQty > 0# Then
++ Do While CDbl(remDeficits(mat)) > 0#
++  needQty = CDbl(remDeficits(mat))
++  
++  Set candOBList = New Collection
++  Set candQtyList = New Collection
++  
+   If obMatMap.exists(mat) Then
+-   Set candOBList = New Collection
+-   Set candQtyList = New Collection
+    For Each candOB In obMatMap(mat)
+-    If Not finalDeleteOBs.exists(CStr(candOB)) Then
++    If Not attemptedOBs.exists(CStr(candOB)) Then
+      candOBList.Add CStr(candOB)
+      candQtyList.Add CDbl(obItemsByOB(CStr(candOB))(mat))
+     End If
+    Next candOB
++  End If
++  
++  If candOBList.count = 0 Then
++   ModuleLog.WriteLog "RC63_NO_MORE_CANDIDATES", "Material=" & mat & " has no more candidate OBs (deficit remaining=" & needQty & ")"
++   Exit Do
++  End If
++  
++  Set selectedSubset = OptimalOBSubset(candOBList, candQtyList, needQty)
++  If selectedSubset.count = 0 Then Exit Do
++  
++  For Each selOB In selectedSubset
++   bestOB = CStr(selOB)
++   attemptedOBs(bestOB) = True
+    
+-   If candOBList.count > 0 Then
+-    Set selectedSubset = OptimalOBSubset(candOBList, candQtyList, needQty)
++   ModuleLog.WriteLog "RC63_TRY_DELETE_OB", "Attempting release of draft 3001 OB=" & bestOB & " for Material=" & mat
++   delStatus = SAPX_DeleteDraftOB(ses, bestOB, "", "", True)
++   
++   If delStatus = "DELETE_VERIFIED" Then
++    countSuccess = countSuccess + 1
++    ModuleLog.WriteLog "RC63_DELETE_VERIFIED", "Successfully deleted draft 3001 OB=" & bestOB & "; Applying multi-mat impact"
+     
+-    For Each selOB In selectedSubset
+-     If Not finalDeleteOBs.exists(CStr(selOB)) Then
+-      selQty = CDbl(obItemsByOB(CStr(selOB))(mat))
+-      finalDeleteOBs.Add CStr(selOB), Array(mat, selQty, obSTOMap(CStr(selOB)))
+-      ModuleLog.WriteLog "RC62_SELECT_OB", "Selected draft 3001 OB=" & selOB & " for Material=" & mat & " (Qty=" & selQty & ")"
+-      
+-      ' Nguyen tac 2: Tinh toan toan bo anh huong da ma tren chung tu
+-      Set mSubDict = obItemsByOB(CStr(selOB))
+-      For Each mItem In mSubDict.keys
+-       If remDeficits.exists(CStr(mItem)) Then
+-        qImpact = CDbl(mSubDict(mItem))
+-        remDeficits(CStr(mItem)) = remDeficits(CStr(mItem)) - qImpact
+-        ModuleLog.WriteLog "RC62_MULTI_MAT_IMPACT", "OB=" & selOB & " also releases " & qImpact & " of Material=" & mItem & "; Remaining deficit=" & remDeficits(CStr(mItem))
+-       End If
+-      Next mItem
++    Set mSubDict = obItemsByOB(bestOB)
++    For Each mItem In mSubDict.keys
++     If remDeficits.exists(CStr(mItem)) Then
++      qImpact = CDbl(mSubDict(mItem))
++      remDeficits(CStr(mItem)) = remDeficits(CStr(mItem)) - qImpact
++      confirmedRelease(CStr(mItem)) = CDbl(confirmedRelease(mItem)) + qImpact
++      ModuleLog.WriteLog "RC63_DEFICIT_COMMITTED", "Material=" & mItem & " released=" & qImpact & "; Remaining deficit=" & remDeficits(CStr(mItem))
+      End If
+-    Next selOB
++    Next mItem
++    
++    If CDbl(remDeficits(mat)) <= 0# Then Exit For
+    Else
+-    ModuleLog.WriteLog "RC62_ALL_CANDIDATES_USED", "Material=" & mat & " candidates already allocated"
++    ModuleLog.WriteLog "RC63_DELETE_SKIPPED", "Draft 3001 OB=" & bestOB & " delete status=" & delStatus & "; Stock not deducted; trying next candidate"
+    End If
+-  Else
+-   ModuleLog.WriteLog "RC62_NO_CANDIDATES", "Material=" & mat & " has no draft 3001 OBs in VL06O"
+-  End If
+- Else
+-  ModuleLog.WriteLog "RC62_MAT_ALREADY_FULFILLED", "Material=" & mat & " deficit already fulfilled (<=0) by previous multi-material OB(s)"
+- End If
++  Next selOB
++ Loop
+ Next matKey
+-
+-' =========================================================================
+-' RC62: THUC HIEN XOA NGUYEN OB (btn[14]) QUA VL02N CHO TO HOP DA CHON
+-' =========================================================================
+-countSuccess = 0
+-If finalDeleteOBs.count > 0 Then
+- ModuleLog.WriteLog "DRAFT_3001_BATCH_START", "Found " & finalDeleteOBs.count & " optimal draft 3001 OB(s) without SLoc to delete in single VL02N batch"
+- SAPX_Navigate ses, "VL02N"
+- For Each delOBKey In finalDeleteOBs.keys
+-  bestOB = CStr(delOBKey)
+-  mat = CStr(finalDeleteOBs(delOBKey)(0))
+-  ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETE", "Deleting draft 3001 OB=" & bestOB & " for Material=" & mat
+-  delStatus = SAPX_DeleteDraftOB(ses, bestOB, "", "", True)
+-  If delStatus = "DELETE_VERIFIED" Then
+-   countSuccess = countSuccess + 1
+-   ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Successfully deleted draft 3001 OB=" & bestOB & " (" & countSuccess & "/" & finalDeleteOBs.count & ")"
+-  Else
+-   ModuleLog.WriteLog "DRAFT_3001_RELEASE_FAIL", "Failed to delete OB=" & bestOB & "; status=" & delStatus
+-  End If
+- Next delOBKey
+-Else
+- ModuleLog.WriteLog "DRAFT_3001_BATCH_NONE", "No draft 3001 OBs needed to delete for deficits"
+-End If
+ 
+ If countSuccess > 0 Then
+  ModuleLog.WriteLog "RELEASE_3001_BATCH_SYNC", "Waiting 2s for SAP ATP synchronization after deleting " & countSuccess & " draft OB(s)"
+
