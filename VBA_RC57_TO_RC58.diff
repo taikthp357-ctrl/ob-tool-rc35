@@ -1,0 +1,106 @@
+--- RC57/ModuleMain.bas
++++ RC58/ModuleMain.bas
+@@ -4219,19 +4219,37 @@
+      Next pOtherRow
+ 
+      If obHasCompletedMat Then
+-      ModuleLog.WriteLog "PARTIAL_STO_KEEP_SHARED_OB", "Partial OB=" & pTargetOB & " contains completed material " & pOtherMat & "; keeping OB"
+-      mEDCWaitByMat(CStr(pCleanMat)) = "VERIFIED_PARTIAL (DA TAO " & pActQty & "/" & pReqQty & " PCS)"
+-      EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
++      ' RC58 Bug 3: Item-level delete for deficient item on multi-item OB to release Due while keeping completed items intact
++      ModuleLog.WriteLog "PARTIAL_STO_ITEM_CLEANUP_START", "Partial OB=" & pTargetOB & " contains completed material " & pOtherMat & "; Deleting deficient item for Material=" & CStr(pCleanMat) & " (Qty=" & pActQty & "/" & pReqQty & ") to restore STO Due"
++      Set pSes = ModuleSAP.EDCGetSession()
++      If Not pSes Is Nothing Then
++       Dim delItemRes As String
++       delItemRes = ModuleSAP.SAPX_DeleteDraftOB(pSes, pTargetOB, CStr(pCleanMat))
++       If delItemRes = "DELETE_VERIFIED" Or delItemRes = "DELETE_ITEM_OK" Then
++        ModuleLog.WriteLog "VL10D_PARTIAL_ITEM_CLEANUP", "Successfully deleted deficient item in OB=" & pTargetOB & " for Material=" & CStr(pCleanMat) & " (" & pActQty & " pcs); other items preserved; STO " & sto & " Due restored"
++        If verifiedPlans.exists(CStr(pCleanMat)) Then verifiedPlans.Remove CStr(pCleanMat)
++        ' RC58 Opt 3: Distinguish item-level delete note from whole-OB delete
++        mEDCWaitByMat(CStr(pCleanMat)) = "DA XOA DONG ITEM THIEU TRONG OB (TAO " & pActQty & "/" & pReqQty & " PCS): TRA LAI STO DUE; CAC MA KHAC GIU NGUYEN"
++        EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
++        PutConfig "VL10D_DIRECT_DONE_" & CStr(pCleanMat), ""
++        ThisWorkbook.Save
++       Else
++        ModuleLog.WriteLog "PARTIAL_STO_ITEM_CLEANUP_FAIL", "Could not delete deficient item in OB=" & pTargetOB & "; status=" & delItemRes
++        mEDCWaitByMat(CStr(pCleanMat)) = "VERIFIED_PARTIAL (DA TAO " & pActQty & "/" & pReqQty & " PCS): Thieu " & pDefQty & " pcs"
++        EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
++       End If
++      End If
+      Else
+       ModuleLog.WriteLog "PARTIAL_STO_CLEANUP_START", "Material=" & CStr(pCleanMat) & "; Partial OB=" & pTargetOB & " (Qty=" & pActQty & "/" & pReqQty & "); 3001 released=" & releasedDraft & "; Deleting incomplete OB to restore STO Due"
+       Set pSes = ModuleSAP.EDCGetSession()
+       If Not pSes Is Nothing Then
+        Dim delRes As String
+-       delRes = ModuleSAP.SAPX_DeleteDraftOB(pSes, pTargetOB)
+-       If delRes = "DELETE_VERIFIED" Then
++       delRes = ModuleSAP.SAPX_DeleteDraftOB(pSes, pTargetOB, CStr(pCleanMat))
++       If delRes = "DELETE_VERIFIED" Or delRes = "DELETE_ITEM_OK" Then
+         ModuleLog.WriteLog "VL10D_PARTIAL_OB_CLEANUP", "Successfully deleted partial OB=" & pTargetOB & " (" & pActQty & " pcs); STO " & sto & " Due restored"
+         If verifiedPlans.exists(CStr(pCleanMat)) Then verifiedPlans.Remove CStr(pCleanMat)
+-        mEDCWaitByMat(CStr(pCleanMat)) = "DA XOA OB THIEU (TAO " & pActQty & "/" & pReqQty & " PCS): HET TON & 3001 KO GIU TON; TRA LAI STO DUE"
++        ' RC58 Opt 3: Whole-OB deletion note
++        mEDCWaitByMat(CStr(pCleanMat)) = "DA XOA TOAN BO OB THIEU (TAO " & pActQty & "/" & pReqQty & " PCS): TRA LAI STO DUE"
+         EDCSetInputNote CStr(pCleanMat), CStr(mEDCWaitByMat(pCleanMat))
+         PutConfig "VL10D_DIRECT_DONE_" & CStr(pCleanMat), ""
+         ThisWorkbook.Save
+@@ -4728,8 +4746,14 @@
+ Dim countReleased As Long, mat As Variant
+ On Error GoTo Failed
+ 
++' RC58 Opt 2: Short-circuit immediately if deficits is empty or total deficit is 0
+ If deficits Is Nothing Then Exit Function
+ If deficits.count = 0 Then Exit Function
++Dim totalDeficit As Double, kDef As Variant
++For Each kDef In deficits.keys
++ totalDeficit = totalDeficit + Val(deficits(kDef))
++Next kDef
++If totalDeficit <= 0 Then Exit Function
+ 
+ ModuleLog.WriteLog "RELEASE_3001_BATCH_START", "Scanning draft 3001 OBs for " & deficits.count & " deficit materials; STO=" & targetSTO
+ countReleased = ModuleSAP.SAPX_FindAndReleaseDraft3001OB_Batch(deficits, targetSTO)
+
+--- RC57/ModuleSAP.bas
++++ RC58/ModuleSAP.bas
+@@ -5531,10 +5531,17 @@
+   End If
+   SAPX_WaitIdle ses, 20
+   
++  ' RC58 Opt 1: Dismiss any post-save popup (warning/informational dialog)
++  If Not SAPX_FindById(ses, "wnd[1]") Is Nothing Then
++   ses.findById("wnd[1]").sendVKey 0
++   SAPX_WaitIdle ses, 10
++  End If
++  
+   sText = SAPX_StatusText(ses)
+   sType = SAPX_StatusType(ses)
+   ModuleLog.WriteLog "DELETE_ITEM_OK", "OB=" & ob & "; Item=" & itemPos & "; Mat=" & itemMat & "; remaining items preserved; Msg=" & sText
+-  SAPX_DeleteDraftOB = "DELETE_VERIFIED"
++  ' RC58 Bug 1/2: Return DELETE_ITEM_OK for item-level deletion
++  SAPX_DeleteDraftOB = "DELETE_ITEM_OK"
+   Exit Function
+  Else
+   ModuleLog.WriteLog "DELETE_ITEM_NOT_FOUND", "Could not locate row for Mat=" & targetMat & "/Item=" & targetItem & " in OB=" & ob & "; fallback to full delete"
+@@ -5746,7 +5753,8 @@
+  bestQty = CDbl(toDeleteDict(delOBKey)(1))
+  ModuleLog.WriteLog "DRAFT_3001_BATCH_DELETE", "Processing candidate OB=" & bestOB & " for Material=" & mat & "; Qty=" & bestQty
+  delStatus = SAPX_DeleteDraftOB(ses, bestOB, mat)
+- If delStatus = "DELETE_VERIFIED" Then
++ ' RC58 Bug 1: Accept both whole-OB (DELETE_VERIFIED) and item-level (DELETE_ITEM_OK) deletion
++ If delStatus = "DELETE_VERIFIED" Or delStatus = "DELETE_ITEM_OK" Then
+   countSuccess = countSuccess + 1
+   ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Released OB=" & bestOB & " for Material=" & mat & " (Qty=" & bestQty & ")"
+  Else
+@@ -5888,8 +5896,9 @@
+ If bestOB <> "" And bestQty > 0 Then
+  ModuleLog.WriteLog "DRAFT_3001_SELECTED", "Selected candidate OB=" & bestOB & " (Qty=" & bestQty & "; minDiff=" & minDiff & ") for deficit=" & deficitQty
+  Dim delStatus As String
+- delStatus = SAPX_DeleteDraftOB(ses, bestOB)
+- If delStatus = "DELETE_VERIFIED" Then
++ ' RC58 Bug 2: Pass targetMat to prevent accidental full-OB deletion on multi-item OBs
++ delStatus = SAPX_DeleteDraftOB(ses, bestOB, targetMat)
++ If delStatus = "DELETE_VERIFIED" Or delStatus = "DELETE_ITEM_OK" Then
+   SAPX_FindAndReleaseDraft3001OB = bestOB & "|" & CStr(bestQty)
+   ModuleLog.WriteLog "DRAFT_3001_RELEASE_OK", "Released OB=" & bestOB & " (Qty=" & bestQty & ")"
+  ElseIf delStatus = "WAIT_STO_LOCK" Then
+
