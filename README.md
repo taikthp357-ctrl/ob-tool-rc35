@@ -1,6 +1,36 @@
-# OB Tool Releases — Public Release & Handoff Repository
+# OB Tool & Stock Management Releases — Public Repository
 
-Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro cho công cụ **OB Tool (SAP / Excel)**.
+Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro cho công cụ **OB Tool (SAP / Excel)** và **Stock FG MA BODY**.
+
+---
+
+## 📊 Bản phát hành Công Cụ Quản Trị Tồn Kho: Stock FG MA BODY V3.7 (16/10/2026)
+
+Bản cập nhật hoàn thiện: Tách biệt tuyệt đối giữa Shop BODY và XMĐ, tích hợp dữ liệu Trạm Line MA và KHSX XMĐ.
+
+### 📦 Các tệp đính kèm V3.7
+
+| Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
+| :--- | :--- | :--- | :--- |
+| **`261008_Stock_FG_MA_BODY_V3_7.zip`** | 744,299 bytes | `2873AEED79B9D278690EAEDB180B679BE273E3C969AFD0F96F664EF124157D3A` | **Gói nén ZIP V3.7 (CHỈ chứa .xlsm và .sha256)** |
+| **`261008_Stock_FG_MA_BODY_V3_7.xlsm`** | 832,761 bytes | `F13A4941A2FAAE469F835C60781B24EB1AAC65466E6E66E57FAE09C7DA4A215B` | Tệp Excel Macro V3.7 hoàn chỉnh (Compile PASS 100%) |
+| **`RELEASE_NOTES_V3_7.md`** | — | — | Ghi chú kỹ thuật chi tiết bản V3.7 |
+
+### 🚀 Điểm cốt lõi bản V3.7
+1. **Shop BODY giữ nguyên 100% logic V3.6**:
+   - Không áp dụng khái niệm trước sơn hay sau sơn cho BODY.
+   - Không lấy tồn Plant 2001 (kho sơn 4001, thành phẩm 5001).
+   - Bảo toàn chuẩn xác 24 cảnh báo của Model VF8.
+2. **Shop XMĐ quản lý tách biệt mã trước & sau sơn**:
+   - `Kho Body` = ESC trước sơn (SLoc 3002, 1001, 600P, 1D01 tại Plant 2001).
+   - `Line Body` = ESC sau sơn (SLoc 4001, 5001, 5002, 600P, 1D01, 3001 tại Plant 2001).
+   - `Tồn Kho MA` & `Tồn Line MA` = Plant 3093 cho cả trước và sau sơn.
+3. **Nút bấm 1-click Chuyển Shop `[ CHUYỂN SHOP: BODY / XMĐ ]`**:
+   - Tọa độ `M5:N6` trên sheet `CANH BAO`.
+   - Tự động hoán đổi danh sách Model tương ứng (13 Model BODY hoặc 21 Model XMĐ).
+4. **Chuẩn hóa thứ tự cột**:
+   - **TỒN TỔNG (10 cột)**: `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm`
+   - **CẢNH BÁO (11 cột)**: `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm` | `Cảnh báo`
 
 ---
 
