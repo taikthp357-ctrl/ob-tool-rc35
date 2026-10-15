@@ -1,0 +1,260 @@
+--- RC63/ModuleMain.bas
++++ RC64/ModuleMain.bas
+@@ -850,6 +850,12 @@
+ End Sub
+ 
+ Public Sub OB_Check()
++
++Dim btnFound As Boolean
++On Error Resume Next
++btnFound = Not (ThisWorkbook.Worksheets("INPUT").Shapes("OBV1__2") Is Nothing)
++On Error GoTo 0
++If Not btnFound Then OB_SetupButtons
+ 
+ If Not BeginRun("KIEM TRA") Then Exit Sub
+ 
+@@ -2873,13 +2879,16 @@
+ 
+ On Error GoTo 0
+ 
+-names = Array("1. KI" & ChrW(7874) & "M TRA & L" & ChrW(7852) & "P K" & ChrW(7870) & " HO" & ChrW(7840) & "CH" & vbLf & "4007: APPLY TAO OB + FIFO", "2. TH" & ChrW(7920) & "C HI" & ChrW(7878) & "N K" & ChrW(7870) & " HO" & ChrW(7840) & "CH" & vbLf & "VL02N / " & ModuleHelper.ToolConfig("TEST_SCOPE", "ALL"))
+-
+-actions = Array("OB_Check", "OB_Execute")
+-
+-rows = Array(9, 13)
+-
+-For i = 0 To 1
++names = Array( _
++    "1. KI" & ChrW(7874) & "M TRA & L" & ChrW(7852) & "P K" & ChrW(7870) & " HO" & ChrW(7840) & "CH" & vbLf & "4007: APPLY TAO OB + FIFO", _
++    "2. TH" & ChrW(7920) & "C HI" & ChrW(7878) & "N K" & ChrW(7870) & " HO" & ChrW(7840) & "CH" & vbLf & "VL02N / " & ModuleHelper.ToolConfig("TEST_SCOPE", "ALL"), _
++    "ALL IN ONE" & vbLf & "T" & ChrW(7920) & " " & ChrW(272) & ChrW(7896) & "NG CH" & ChrW(7840) & "Y TO" & ChrW(192) & "N B" & ChrW(7896) & " (1 + 2)")
++
++actions = Array("OB_Check", "OB_Execute", "OB_RunAll")
++
++rows = Array(9, 13, 17)
++
++For i = 0 To 2
+ 
+  Set p = ws.Range("P" & rows(i) & ":R" & rows(i) + 2)
+ 
+@@ -2928,6 +2937,8 @@
+  If i = 0 Then Sh.Fill.ForeColor.RGB = RGB(15, 118, 110)
+ 
+  If i = 1 Then Sh.Fill.ForeColor.RGB = RGB(166, 94, 15)
++
++ If i = 2 Then Sh.Fill.ForeColor.RGB = RGB(30, 64, 175)
+ 
+  Sh.line.Visible = False
+ 
+@@ -4184,6 +4195,10 @@
+ detail = ModuleSAP.EDC4007_CreateGroup(sto)
+ ModuleLog.WriteLog "VL10D_GROUP_CREATE_SUBMITTED", "STO=" & sto & "; " & detail
+ 
++' RC64: Doc ket qua danh gia STO Due giam ngay tren man hinh sau khi F8 Refresh
++Dim dueDeficits As Object
++Set dueDeficits = ModuleSAP.EDC4007_GetDueDeficits()
++
+ stage = "GROUP_REFRESH_VL06O"
+ EDCRefreshGroupOB InputProducts()
+ 
+@@ -4192,11 +4207,26 @@
+ Set verifiedPlans = CreateObject("Scripting.Dictionary")
+ 
+ EDCVerifyGroup plans, deficits, False, verifiedPlans
++
++' RC64: Dong bo deficits dua tren thuc te so luong STO Due da giam
++If Not dueDeficits Is Nothing Then
++ Dim dMat As Variant
++ For Each dMat In dueDeficits.keys
++  If CDbl(dueDeficits(dMat)) > 0 Then
++   deficits(CStr(dMat)) = CDbl(dueDeficits(dMat))
++  ElseIf deficits.exists(CStr(dMat)) And CDbl(dueDeficits(dMat)) = 0 Then
++   ' STO da giam du 100% so luong -> khong phai thieu ton, coi la DONE!
++   deficits.Remove CStr(dMat)
++  End If
++ Next dMat
++End If
+ 
+ stage = "RELEASE_3001_DRAFTS"
+ Dim releasedDraft As Boolean
+ If deficits.count > 0 And ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
+  releasedDraft = EDCReleaseDrafts3001(deficits, sto)
++ElseIf deficits.count = 0 Then
++ ModuleLog.WriteLog "RELEASE_3001_BYPASS", "Tat ca ma da sinh du OB (STO Due da giam du); bo qua hoan toan buoc xoa nhap 3001"
+ End If
+ 
+ ' Commit verified plans: if retry is about to run, KEEP pending key active!
+
+--- RC63/ModuleSAP.bas
++++ RC64/ModuleSAP.bas
+@@ -2,6 +2,7 @@
+ 
+ Option Explicit
+ Private mEDCLastDue As Collection
++Private mEDCLastDueDeficits As Object
+ Private mEDCLastDueAt As Double
+ Private mEDCReferenceCache As Object
+ Private mEDCGroupTargets As Object
+@@ -5170,7 +5171,18 @@
+ ModuleMain.AssertRunIdentity
+ If UCase$(ModuleHelper.ToolConfig("MODE", "PREVIEW")) <> "APPLY" Then Err.Raise vbObjectError + 4261, , "PREVIEW: no group Create."
+ mEDCGroupSTO = ""
+-EDC4007_CreateGroup = EDCPressCreate()
++
++' RC64: 1. Press Create Delivery (btn[19])
++Dim createResult As String
++createResult = EDCPressCreate()
++
++' RC64: 2. Press Refresh (btn[8]) directly on Due List as in vl10d1(1).vbs
++EDC4007_RefreshDueScreen
++
++' RC64: 3. Evaluate STO Due decrease immediately on refreshed screen
++EDC4007_EvaluateDueDecrease sto
++
++EDC4007_CreateGroup = createResult
+ End Function
+ 
+ Private Function EDCPressCreate() As String
+@@ -5219,6 +5231,141 @@
+ End If
+ Failed:
+  EDC4007_RefreshDueScreen = False
++End Function
++
++' RC64: Doc danh sach Due tren man hinh hien tai ma khong dieu huong /nVL10D
++Public Function EDC4007_ReadDueCurrentScreen(ByVal sto As String) As Collection
++Dim result As Collection, ses As Object, grid As Object, ids As Collection, ni As Object, nc As Object
++Dim cSTO As String, cItem As String, cMat As String, cPlant As String, cQty As String, cUom As String, cSource As String
++Dim r As Long, a As Variant, qty As Double, seen As Object, key As String, source As String
++
++Set result = New Collection: Set seen = CreateObject("Scripting.Dictionary")
++Set ses = mEDCSession
++If ses Is Nothing Then Set ses = SAPX_GetSessionForTcode("VL10D")
++If ses Is Nothing Then
++ Set EDC4007_ReadDueCurrentScreen = result
++ Exit Function
++End If
++If Not SAPX_TcodeIs(ses, "VL10D") Then
++ Set EDC4007_ReadDueCurrentScreen = result
++ Exit Function
++End If
++
++Set mEDCQty = Nothing: Set mEDCCheck = Nothing: Set mEDCGrid = Nothing: mEDCIdentity = ""
++If InStr(1, SAPX_StatusText(ses), "no data", vbTextCompare) > 0 Or InStr(1, SAPX_StatusText(ses), "no deliveries", vbTextCompare) > 0 Or InStr(1, SAPX_StatusText(ses), "no entries", vbTextCompare) > 0 Then
++ ModuleLog.WriteLog "VL10D_REFRESH_NO_DUE", "Refreshed Due List is empty (all items consumed or no entries): " & SAPX_StatusText(ses)
++ Set EDC4007_ReadDueCurrentScreen = result
++ Exit Function
++End If
++
++Set grid = SAPX_FindLargestGrid(ses)
++If grid Is Nothing Then
++ Set result = EDC_ClassicDue(ses, "", sto)
++Else
++ SAPX_BuildColumnCatalogFast grid, ids, ni, nc
++ cSTO = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL10D_STO_COL", "EBELN"), "EBELN,VGBEL", True, ids, ni, nc)
++ cItem = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL10D_ITEM_COL", "EBELP"), "EBELP,VGPOS", True, ids, ni, nc)
++ cMat = SAPX_ResolveColumnFast("MATNR", "MATNR,EMATN", True, ids, ni, nc)
++ cPlant = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL10D_PLANT_COL", "WERKS"), "WERKS,RECEIVING PLANT", True, ids, ni, nc)
++ cQty = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL10D_QTY_COL", ""), "LFIMG,DLVQTY,DELIVERY QTY", True, ids, ni, nc)
++ cUom = SAPX_ResolveColumnFast(ModuleHelper.ToolConfig("VL10D_UOM_COL", ""), "VRKME,MEINS,SALES UNIT", True, ids, ni, nc)
++ cSource = SAPX_ResolveColumnFast("RESWK", "RESWK,SUPPLYING PLANT", False, ids, ni, nc)
++ mEDCStoCol = cSTO: mEDCItemCol = cItem: mEDCMatCol = cMat: mEDCPlantCol = cPlant: mEDCUomCol = cUom
++ grid.selectedRows = ""
++ For r = 0 To grid.rowCount - 1
++  SAPX_EnsureGridRowVisible grid, r
++  If EDCMaterialInScope(SAPX_GridText(grid, r, cMat), "") And SAPX_GridText(grid, r, cPlant) = "4007" And (sto = "" Or ModuleMain.EDCScopeIncludes(sto, SAPX_GridText(grid, r, cSTO))) Then
++   source = ""
++   If cSource <> "" Then source = SAPX_GridText(grid, r, cSource)
++   If source = "" And mEDCSupplySelected Then source = ModuleHelper.ToolConfig("VL06O_SHIPPING_POINT", "3093")
++   qty = ModuleHelper.CleanDouble(SAPX_GridText(grid, r, cQty))
++   If qty > 0 Then
++    key = SAPX_GridText(grid, r, cSTO) & "|" & SAPX_GridText(grid, r, cItem)
++    If Not seen.exists(key) Then
++     seen(key) = True
++     a = Array(SAPX_GridText(grid, r, cSTO), SAPX_GridText(grid, r, cItem), SAPX_GridText(grid, r, cMat), "4007", qty, SAPX_GridText(grid, r, cUom), "", "", r, cQty, source)
++     result.Add a
++    End If
++   End If
++  End If
++ Next r
++ Set mEDCGrid = grid
++End If
++
++Set EDC4007_ReadDueCurrentScreen = result
++End Function
++
++' RC64: Danh gia so luong STO Due da giam ngay tren man hinh sau khi F8 Refresh
++Public Function EDC4007_EvaluateDueDecrease(ByVal sto As String) As Object
++Dim deficits As Object, mat As Variant, planned As Variant, cand As Variant
++Dim initialDue As Double, requestedQty As Double, remainingDue As Double, consumedQty As Double, deficit As Double
++Dim newDueCol As Collection, found As Boolean
++
++Set deficits = CreateObject("Scripting.Dictionary")
++Set mEDCLastDueDeficits = CreateObject("Scripting.Dictionary")
++
++If mEDCGroupTargets Is Nothing Or mEDCGroupDue Is Nothing Then
++ Set EDC4007_EvaluateDueDecrease = deficits
++ Exit Function
++End If
++
++On Error GoTo EvaluateFailed
++Set newDueCol = EDC4007_ReadDueCurrentScreen(sto)
++
++For Each mat In mEDCGroupTargets.keys
++ planned = mEDCGroupTargets(mat)
++ initialDue = 0#
++ If mEDCGroupDue.exists(CStr(mat)) Then
++  initialDue = CDbl(mEDCGroupDue(CStr(mat))(4))
++ End If
++ requestedQty = CDbl(planned(3))
++ 
++ ' Find matching row in refreshed Due list
++ found = False
++ remainingDue = 0#
++ If Not newDueCol Is Nothing Then
++  For Each cand In newDueCol
++   If CStr(cand(0)) = sto And val(CStr(cand(1))) = val(CStr(planned(2))) And CStr(cand(2)) = CStr(mat) Then
++    remainingDue = CDbl(cand(4))
++    found = True
++    Exit For
++   End If
++  Next cand
++ End If
++ 
++ If Not found Then
++  ' Dong da bien mat khoi Due List -> Open Qty ve 0, STO da giam toan bo!
++  remainingDue = 0#
++  consumedQty = initialDue
++ Else
++  consumedQty = initialDue - remainingDue
++ End If
++ 
++ If consumedQty >= requestedQty Then
++  deficit = 0#
++  ModuleLog.WriteLog "VL10D_STO_DUE_CONSUMED", "Material=" & CStr(mat) & "; STO=" & sto & "/" & CStr(planned(2)) & "; initialDue=" & initialDue & "; newDue=" & remainingDue & "; consumed=" & consumedQty & "; requested=" & requestedQty & " -> DONE (STO decreased fully)"
++ Else
++  deficit = requestedQty - IIf(consumedQty > 0#, consumedQty, 0#)
++  deficits(CStr(mat)) = deficit
++  ModuleLog.WriteLog "VL10D_STO_DUE_UNCHANGED", "Material=" & CStr(mat) & "; STO=" & sto & "/" & CStr(planned(2)) & "; initialDue=" & initialDue & "; newDue=" & remainingDue & "; consumed=" & consumedQty & "; requested=" & requestedQty & " -> DEFICIT=" & deficit & " (STO did not decrease, 3001 holding stock)"
++ End If
++Next mat
++
++Set mEDCLastDueDeficits = deficits
++Set EDC4007_EvaluateDueDecrease = deficits
++Exit Function
++
++EvaluateFailed:
++ ModuleLog.WriteLog "VL10D_EVALUATE_DUE_ERR", Err.Number & "; " & Err.Description
++ Set EDC4007_EvaluateDueDecrease = deficits
++End Function
++
++Public Function EDC4007_GetDueDeficits() As Object
++ If mEDCLastDueDeficits Is Nothing Then
++  Set EDC4007_GetDueDeficits = CreateObject("Scripting.Dictionary")
++ Else
++  Set EDC4007_GetDueDeficits = mEDCLastDueDeficits
++ End If
+ End Function
+ 
+ Public Function EDC4007_FindDueGroup(ByVal sto As String, ByVal products As Object) As Collection
+
