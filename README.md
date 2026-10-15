@@ -5,6 +5,22 @@ Canonical SHA256: `03A9740F8877FCD14324ED05606698E0BEE01508958209FD73CC6DD3253C4
 Handoff Archive: `RC63_HANDOFF.zip`  
 Archive SHA256: `81FE40984D47EB1A470CB8A4F76B785153FC511B425A5D729335AAABF09821F9`
 
+## 📊 Bản phát hành Công Cụ Tồn Kho: Stock FG MA BODY V3.7 (15/10/2026)
+
+Tệp Excel Macro: `261008_Stock_FG_MA_BODY_V3_7.xlsm`  
+Kích thước: 807,813 bytes  
+SHA-256: `0A5DA3EB764D41BD85FB3235D974BB03F3F39B13CB748452F626BE2FA1AAC05D`  
+Gói nén ZIP: `261008_Stock_FG_MA_BODY_V3_7.zip` (SHA-256: `EED33261C44DB42EA1BE7AF01795FFBEC22DCD9456FB54542460ED672D12D463`)
+
+### 🌟 Điểm Cải Tiến V3.7
+- **Tích hợp Dữ liệu Trạm Line MA**: Bổ sung đầy đủ cột `Trạm` liên kết trực tiếp với dữ liệu trạm line thực tế.
+- **Tích hợp Kế hoạch Sản xuất XMĐ**: Nhập toàn bộ dữ liệu kế hoạch sản xuất từ file KHSX XMĐ mới nhất.
+- **Chuẩn hóa Thứ tự Cột Bảng TỒN TỔNG & CẢNH BÁO**:
+  `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm`
+- **Tự động Đồng bộ Báo cáo Tồn Kho Body – MA**: Cập nhật công thức và logic cảnh báo tồn kho, khả năng build theo thời gian thực.
+
+---
+
 ## 🌟 Điểm Cải Tiến Đột Phá Trên RC63 (ALL IN ONE)
 
 ### 1. Nút Bấm Điều Phối Toàn Trình "⚡ CHẠY TẤT CẢ (ALL IN ONE)"
