@@ -23,6 +23,8 @@ Gói nén ZIP: `261008_Stock_FG_MA_BODY_V3_7.zip` (SHA-256: `EED33261C44DB42EA1B
 
 ## 🌟 Điểm Cải Tiến Đột Phá Trên RC63 (ALL IN ONE)
 
+**Tài liệu tham chiếu VL10D (Ship-to 4007):** [RC63/references/vl10d1(1).vbs](RC63/references/vl10d1(1).vbs) · [Hướng dẫn RC63](RC63/README.md). Đây là bản ghi thao tác SAP GUI, chưa tích hợp vào XLSM phát hành.
+
 ### 1. Nút Bấm Điều Phối Toàn Trình "⚡ CHẠY TẤT CẢ (ALL IN ONE)"
 - **Single-Click Execution**: Một nút bấm duy nhất trên sheet `INPUT` tự động hoàn thành từ A đến Z mọi bước:
   * Tự động đặt `MODE = "APPLY"`.
