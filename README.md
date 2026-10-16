@@ -20,8 +20,8 @@ tools/
 
 ### 1. 📊 [Stock FG MA BODY V3.7](./tools/stock-fg-ma-body/) (Cập nhật 16/10/2026)
 *Tách biệt hoàn toàn Shop BODY và XMĐ, hiển thị rõ ràng mã Trước/Sau sơn, căn chỉnh giao diện chuẩn.*
-* **Tệp Excel**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm) — SHA-256: `55E014E6D66D3324C571BDC7B7DF35E76CB16F2301B5FDC68ABB61C30D67137F`
-* **Gói nén ZIP**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip) — SHA-256: `986636358B0ED79DE45CDCF21AA6E99560A6B7B38F4B41E485B631AFCC6DBDDD`
+* **Tệp Excel**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm) — SHA-256: `98B37DD75A2EB0E57D5DCC8DD32BE497B2F9CDF38D50B98CA3A232834549A1C1`
+* **Gói nén ZIP**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip) — SHA-256: `8445BBE8CCC2373D5C3A4AEFBFC1F38FFEDE3EA495912023482C04743AAAA443`
 * **Ghi chú phát hành**: [`tools/stock-fg-ma-body/RELEASE_NOTES_V3_7.md`](./tools/stock-fg-ma-body/RELEASE_NOTES_V3_7.md)
 
 ---
