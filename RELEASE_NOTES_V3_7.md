@@ -1,56 +1,66 @@
-# Stock FG MA BODY V3.7 — Báo Cáo & Quản Trị Tồn Kho Body - MA (Bản Chuẩn Hóa: Tách Biệt Tuyệt Đối BODY & XMĐ)
+# Stock FG MA BODY V3.7 — Báo Cáo & Quản Trị Tồn Kho Body - MA (Bản Chuẩn Hóa: Tiêu Đề Động & Hiển Thị Mã Trước / Sau Sơn)
 
 ## 1. Thông Tin Bản Phát Hành & Mã Băm SHA-256
 - **Tên Workbook**: `261008_Stock_FG_MA_BODY_V3_7.xlsm`
-  - **Kích thước**: 832,761 bytes
-  - **Mã băm SHA-256**: `F13A4941A2FAAE469F835C60781B24EB1AAC65466E6E66E57FAE09C7DA4A215B`
+  - **Kích thước**: 860,105 bytes
+  - **Mã băm SHA-256**: `A40F61D7BD54A53A14F050213BAB38828735C3901E79DDF5B343CACA5708A851`
 - **Gói ZIP đính kèm**: `261008_Stock_FG_MA_BODY_V3_7.zip`
-  - **Kích thước**: 744,299 bytes
-  - **Mã băm SHA-256**: `2873AEED79B9D278690EAEDB180B679BE273E3C969AFD0F96F664EF124157D3A`
-  - **Nội dung gói ZIP**: Đóng gói tinh gọn và sạch sẽ, **CHỈ chứa** tệp `261008_Stock_FG_MA_BODY_V3_7.xlsm` và `261008_Stock_FG_MA_BODY_V3_7.xlsm.sha256`, tuyệt đối không có thư mục hay tệp phụ không liên quan.
+  - **Kích thước**: 769,913 bytes
+  - **Mã băm SHA-256**: `EE9F2520B4567D90FB1FA2401D4F3456FAA95B77896AE194507332E63B9123EF`
+  - **Nội dung gói ZIP**: Đóng gói tinh gọn, **CHỈ chứa** tệp `261008_Stock_FG_MA_BODY_V3_7.xlsm` và `261008_Stock_FG_MA_BODY_V3_7.xlsm.sha256`.
 
 ---
 
-## 2. Các Quy Tắc Kỹ Thuật Cốt Lõi Được Chuẩn Hóa
+## 2. Các Nâng Cấp Kỹ Thuật Đã Xử Lý Hoàn Toàn
 
-### A. Shop BODY: Giữ Nguyên 100% Logic V3.6 (Không Khái Niệm Trước/Sau Sơn, Không Plant 2001)
-- **Tuyệt đối không áp dụng trước/sau sơn cho BODY**:
-  - `Kho Body` = SLoc `1003` (Plant `3001`).
-  - `Line Body` = SLoc `3003` (Plant `3001`).
-  - `Can build Body` = `Int((Kho Body + Line Body) / Usage)`.
-  - `Intransit` = `Stock in Transit` (Plant `3001`).
-  - `Tồn Kho MA` = SLoc `3093` (Plant `3093`).
-  - `Tồn Line MA` = SLoc `3000` (Plant `3093`).
-  - `Model` = 13 Model chuẩn của BODY (`VF8`, `VF5`, `VF6`, `VF7`, `VF9`, `Limo`...).
-  - `Trạm` = Dữ liệu Trạm trích xuất từ File 3 (`2026_ Bao cao ton kho_Body-MA.xlsb`).
-- **Bảo toàn số lượng cảnh báo**: Shop BODY giữ đúng 24 cảnh báo chuẩn xác của Model VF8, hoàn toàn sạch sẽ và không bị ảnh hưởng bởi dữ liệu hay kho của Plant 2001.
+### A. Tiêu Đề Động Theo Từng Shop (Không Còn Bị Cố Định Là Body)
+1. **Tiêu đề Sheet `CANH BAO` (Ô A1)**:
+   - Khi xem **Shop BODY**: `CẢNH BÁO TỒN KHO BODY – MA V3.7`
+   - Khi bấm chuyển **Shop XMĐ**: Tự động đổi thành `CẢNH BÁO TỒN KHO XMĐ (XE MÁY ĐIỆN) – MA V3.7`
+2. **Ghi chú tính toán (Ô A10)**:
+   - Khi xem **Shop BODY**: `Chỉ cảnh báo DOH < ngưỡng model. Can build = INT(Tổng Body / US).`
+   - Khi xem **Shop XMĐ**: `Chỉ cảnh báo DOH < ngưỡng model. Can build = INT(Tổng ESC / US).`
+3. **Nội dung cảnh báo hành động**:
+   - Khi xem **Shop BODY**: `Ưu tiên xuất Body` / `Chờ nhận hàng sang Body` / `MA hết tồn`
+   - Khi xem **Shop XMĐ**: `Ưu tiên xuất XMĐ` / `Chờ nhận hàng sang XMĐ` / `MA hết tồn` (Tuyệt đối không còn chữ "Body").
 
-### B. Shop XMĐ: Phân Định Rõ Ràng Mã Trước Sơn & Sau Sơn
-- **Cơ chế đặc thù chỉ dành cho XMĐ**:
-  - `Kho Body` = ESC trước sơn: SLoc `3002`, `1001`, `600P`, `1D01` (Plant `2001`) của mã trước sơn.
-  - `Line Body` = ESC sau sơn: SLoc `4001`, `5001`, `5002`, `600P`, `1D01`, `3001` (Plant `2001`) của mã sau sơn (+ mã trước sơn nếu có).
-  - `Can build Body` = `Int((Kho Body + Line Body) / Usage)` phản ánh chuẩn xác tổng linh kiện có thể lắp ráp từ cả trước và sau sơn.
-  - `Tồn Kho MA` & `Tồn Line MA` = SLoc `3093`, `3000`, `1005` (Plant `3093`) cộng gộp cả mã trước và sau sơn.
-  - `Model` = 21 Model của XMĐ (`VF6,7`, `VF8`, `VF9 LH`, `VFe34`...).
-  - `Trạm` = Dữ liệu Trạm lấy từ sheet XMD của File 2 (`260917_ KHSX XMD..xlsb`).
+---
 
-### C. Nút Tổng Chuyển Shop 1-Click: `[ CHUYỂN SHOP: BODY / XMĐ ]`
-- Nằm cố định tại ô `M5:N6` trên sheet `CANH BAO`.
-- Click chuyển ngay lập tức giữa Shop BODY và XMĐ:
-  - Tự động lọc danh sách Checkbox Model phù hợp bên phải (`M7:N...`).
-  - Tự động cập nhật bảng `CANH BAO` và bảng `TON TONG` tương ứng.
-  - Trạng thái hiển thị rõ ràng tại ô `M3`.
+### B. Biểu Hiện Đầy Đủ & Tách Biệt Các Mã Trước Sơn & Sau Sơn (Dành Riêng Cho XMĐ)
+Khi chuyển sang **Shop XMĐ**, bảng tự động kích hoạt chế độ quản trị 2 mã vật tư:
+- **Cột 1**: `FG trước sơn` (Mã linh kiện trước sơn, ví dụ: `BIW70011341`)
+- **Cột 2**: `FG sau sơn` (Mã linh kiện sau sơn, ví dụ: `BIW70011351`)
+- **Cột 3**: `Usage`
+- **Cột 4**: `ESC trước sơn` (Tồn của mã trước sơn tại ESC: SLoc 3002, 1001, 600P, 1D01 Plant 2001)
+- **Cột 5**: `ESC sau sơn` (Tồn của mã sau sơn tại ESC: SLoc 4001, 5001, 5002, 600P, 1D01, 3001 Plant 2001)
+- **Cột 6**: `ESC Carset` (Khả năng lắp ráp xe tổng từ cả trước và sau sơn: `Int((ESC trước sơn + ESC sau sơn) / Usage)`)
+- **Cột 7**: `Intransit`
+- **Cột 8**: `Tồn Kho MA` (Plant 3093 của cả 2 mã)
+- **Cột 9**: `Tồn Line MA` (Plant 3093 của cả 2 mã)
+- **Cột 10**: `Model` (21 Model XMĐ)
+- **Cột 11**: `Trạm` (Trích xuất từ File 2 KHSX XMĐ)
+- **Cột 12** *(trên CANH BAO)*: `Cảnh báo`
 
-### D. Chuẩn Hóa Thứ Tự Cột 100% Theo Yêu Cầu
-- **Sheet `TON TONG` (10 cột)**:
-  `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm`
-- **Sheet `CANH BAO` (11 cột)**:
-  `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm` | `Cảnh báo`
+---
+
+### C. Shop BODY Giữ Nguyên 100% Theo Chuẩn Cũ V3.6
+Khi chuyển lại về **Shop BODY**:
+- Bảng tự động trở về **10 cột (TON TONG) / 11 cột (CANH BAO)**:
+  `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm` [| `Cảnh báo`]
+- Không áp dụng khái niệm trước/sau sơn.
+- Không lấy tồn Plant 2001.
+- Bảo toàn đúng 24 cảnh báo chuẩn xác của Model VF8.
+
+---
+
+### D. Bố Cục Giao Diện Mới N & O
+- Bảng chọn Checkbox Model và Nút Chuyển Shop `Btn_SwitchShop` được chuyển sang cột `N` và `O` (với cột `M` làm dải phân cách thẩm mỹ).
+- Bảng dữ liệu tự động co giãn độ rộng cột tương ứng, không bị đè nút bấm hay che khuất thông tin.
 
 ---
 
 ## 3. Kiểm Thử Hệ Thống (Verification Suite)
 - **Native VBE Debug Compile**: `PASS 100%` (`control.Enabled = False`).
-- **XML Structure**: Thuộc tính `forceFullCalc="1"` bị loại bỏ hoàn toàn, workbook mở mượt mà.
-- **BODY Verification**: 1,633 vật tư, đúng 24 cảnh báo VF8.
-- **XMĐ Verification**: 134 vật tư, tính toán chính xác tồn trước/sau sơn.
+- **XML Structure**: Khử hoàn toàn thuộc tính `forceFullCalc="1"`.
+- **Test Shop BODY**: 24/24 cảnh báo VF8, 1,633 vật tư, tiêu đề chuẩn BODY.
+- **Test Shop XMĐ**: 134 vật tư, hiển thị đầy đủ `FG trước sơn` và `FG sau sơn`, tiêu đề chuẩn XMĐ/ESC, cảnh báo ghi rõ XMĐ.

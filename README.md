@@ -6,31 +6,33 @@ Kho lưu trữ công khai các bản phát hành và gói bàn giao Excel Macro 
 
 ## 📊 Bản phát hành Công Cụ Quản Trị Tồn Kho: Stock FG MA BODY V3.7 (16/10/2026)
 
-Bản cập nhật hoàn thiện: Tách biệt tuyệt đối giữa Shop BODY và XMĐ, tích hợp dữ liệu Trạm Line MA và KHSX XMĐ.
+Bản cập nhật hoàn thiện: Tách biệt tuyệt đối giữa Shop BODY và XMĐ, tiêu đề và bảng cột động theo shop, hiển thị rõ ràng mã trước/sau sơn.
 
 ### 📦 Các tệp đính kèm V3.7
 
 | Tên tệp | Kích thước | SHA-256 Hash | Mô tả |
 | :--- | :--- | :--- | :--- |
-| **`261008_Stock_FG_MA_BODY_V3_7.zip`** | 744,299 bytes | `2873AEED79B9D278690EAEDB180B679BE273E3C969AFD0F96F664EF124157D3A` | **Gói nén ZIP V3.7 (CHỈ chứa .xlsm và .sha256)** |
-| **`261008_Stock_FG_MA_BODY_V3_7.xlsm`** | 832,761 bytes | `F13A4941A2FAAE469F835C60781B24EB1AAC65466E6E66E57FAE09C7DA4A215B` | Tệp Excel Macro V3.7 hoàn chỉnh (Compile PASS 100%) |
+| **`261008_Stock_FG_MA_BODY_V3_7.zip`** | 769,913 bytes | `EE9F2520B4567D90FB1FA2401D4F3456FAA95B77896AE194507332E63B9123EF` | **Gói nén ZIP V3.7 (CHỈ chứa .xlsm và .sha256)** |
+| **`261008_Stock_FG_MA_BODY_V3_7.xlsm`** | 860,105 bytes | `A40F61D7BD54A53A14F050213BAB38828735C3901E79DDF5B343CACA5708A851` | Tệp Excel Macro V3.7 hoàn chỉnh (Compile PASS 100%) |
 | **`RELEASE_NOTES_V3_7.md`** | — | — | Ghi chú kỹ thuật chi tiết bản V3.7 |
 
 ### 🚀 Điểm cốt lõi bản V3.7
-1. **Shop BODY giữ nguyên 100% logic V3.6**:
-   - Không áp dụng khái niệm trước sơn hay sau sơn cho BODY.
-   - Không lấy tồn Plant 2001 (kho sơn 4001, thành phẩm 5001).
-   - Bảo toàn chuẩn xác 24 cảnh báo của Model VF8.
-2. **Shop XMĐ quản lý tách biệt mã trước & sau sơn**:
-   - `Kho Body` = ESC trước sơn (SLoc 3002, 1001, 600P, 1D01 tại Plant 2001).
-   - `Line Body` = ESC sau sơn (SLoc 4001, 5001, 5002, 600P, 1D01, 3001 tại Plant 2001).
-   - `Tồn Kho MA` & `Tồn Line MA` = Plant 3093 cho cả trước và sau sơn.
-3. **Nút bấm 1-click Chuyển Shop `[ CHUYỂN SHOP: BODY / XMĐ ]`**:
-   - Tọa độ `M5:N6` trên sheet `CANH BAO`.
-   - Tự động hoán đổi danh sách Model tương ứng (13 Model BODY hoặc 21 Model XMĐ).
-4. **Chuẩn hóa thứ tự cột**:
-   - **TỒN TỔNG (10 cột)**: `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm`
-   - **CẢNH BÁO (11 cột)**: `Material` | `Usage` | `Kho Body` | `Line Body` | `Can build Body` | `Intransit` | `Tồn Kho MA` | `Tồn Line MA` | `Model` | `Trạm` | `Cảnh báo`
+1. **Tiêu đề và thuật ngữ động theo Shop**:
+   - Khi xem **BODY**: Tiêu đề hiển thị `CẢNH BÁO TỒN KHO BODY – MA V3.7`, các cột mang tên `Kho Body`, `Line Body`, `Can build Body`, cảnh báo `Ưu tiên xuất Body`.
+   - Khi bấm chuyển **XMĐ**: Tiêu đề tự động chuyển thành `CẢNH BÁO TỒN KHO XMĐ (XE MÁY ĐIỆN) – MA V3.7`, các cột mang tên `ESC trước sơn`, `ESC sau sơn`, `ESC Carset`, cảnh báo `Ưu tiên xuất XMĐ` (không còn chữ Body).
+2. **Hiển thị rõ ràng & tách biệt mã trước và sau sơn cho XMĐ**:
+   - Cột 1: `FG trước sơn` (Mã trước sơn, e.g. `BIW70011341`)
+   - Cột 2: `FG sau sơn` (Mã sau sơn, e.g. `BIW70011351`)
+   - Cột 4: `ESC trước sơn` (Tồn của mã trước sơn tại ESC)
+   - Cột 5: `ESC sau sơn` (Tồn của mã sau sơn tại ESC)
+   - Cột 6: `ESC Carset` (Khả năng lắp ráp xe tổng từ cả trước và sau sơn)
+3. **Shop BODY giữ nguyên 100% logic V3.6 cũ**:
+   - Bảng 10 cột (TON TONG) và 11 cột (CANH BAO).
+   - Không có khái niệm trước/sau sơn, không lấy tồn Plant 2001.
+   - Bảo toàn đúng 24 cảnh báo chuẩn xác của Model VF8.
+4. **Nút bấm 1-click Chuyển Shop `[ CHUYỂN SHOP: BODY / XMĐ ]`**:
+   - Tọa độ `N5:O6` trên sheet `CANH BAO`.
+   - Bảng checkbox Model ở cột `N` & `O`, tự động hoán đổi giữa 13 Model BODY và 21 Model XMĐ.
 
 ---
 
