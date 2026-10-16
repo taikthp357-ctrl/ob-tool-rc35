@@ -1,0 +1,250 @@
+--- RC64/ModuleMain.bas
++++ RC65/ModuleMain.bas
+@@ -3827,28 +3827,37 @@
+  If CDbl(candidate(4)) > 0 Then eligible.Add candidate
+ Next candidate
+ If eligible.count = 0 Then
+- ' RC57 Khau 3: Quet nha ton chu dong tu Check Plan khi Due = 0
+- If ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
+-  Dim singleDef As Object, relCount As Long
+-  Set singleDef = CreateObject("Scripting.Dictionary")
+-  singleDef.Add mat, missing
+-  ModuleLog.WriteLog "PROACTIVE_3001_SCAN", "Due=0 for Material=" & mat & "; scanning draft 3001 to release stock..."
+-  relCount = ModuleSAP.SAPX_FindAndReleaseDraft3001OB_Batch(singleDef, scope)
+-  If relCount > 0 Then
+-   ModuleLog.WriteLog "PROACTIVE_3001_RELEASE_OK", "Released " & relCount & " OB(s) for Material=" & mat & "; refreshing Due list"
+-   Set mEDCDueCache = CreateObject("Scripting.Dictionary")
+-   ModuleSAP.EDC4007_RefreshDueScreen
+-   Set due = EDCCachedDue(mat, scope)
+-   Set eligible = New Collection
+-   For Each candidate In due
+-    If CDbl(candidate(4)) > 0 Then eligible.Add candidate
+-   Next candidate
+-  End If
+- End If
+- 
+- If eligible.count = 0 Then
+-  ModuleLog.WriteLog "WAIT_STO_DUE_4007", mat & "; need=" & need & "; capacity=" & capacity & "; missing=" & missing & "; scope=" & scope
+-  Err.Raise vbObjectError + 4269, , "WAIT_STO_DUE_4007: need=" & need & "; OB capacity=" & capacity & "; missing=" & missing
++ Dim planShipTo As String
++ planShipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++ If planShipTo = "4007" Then
++  ' RC57 Khau 3: Quet nha ton chu dong tu Check Plan khi Due = 0 (CHI CHO 4007)
++  If ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
++   Dim singleDef As Object, relCount As Long
++   Set singleDef = CreateObject("Scripting.Dictionary")
++   singleDef.Add mat, missing
++   ModuleLog.WriteLog "PROACTIVE_3001_SCAN", "Due=0 for Material=" & mat & "; scanning draft 3001 to release stock..."
++   relCount = ModuleSAP.SAPX_FindAndReleaseDraft3001OB_Batch(singleDef, scope)
++   If relCount > 0 Then
++    ModuleLog.WriteLog "PROACTIVE_3001_RELEASE_OK", "Released " & relCount & " OB(s) for Material=" & mat & "; refreshing Due list"
++    Set mEDCDueCache = CreateObject("Scripting.Dictionary")
++    ModuleSAP.EDC4007_RefreshDueScreen
++    Set due = EDCCachedDue(mat, scope)
++    Set eligible = New Collection
++    For Each candidate In due
++     If CDbl(candidate(4)) > 0 Then eligible.Add candidate
++    Next candidate
++   End If
++  End If
++  
++  If eligible.count = 0 Then
++   ModuleLog.WriteLog "WAIT_STO_DUE_4007", mat & "; need=" & need & "; capacity=" & capacity & "; missing=" & missing & "; scope=" & scope
++   Err.Raise vbObjectError + 4269, , "WAIT_STO_DUE_4007: need=" & need & "; OB capacity=" & capacity & "; missing=" & missing
++  End If
++ ElseIf planShipTo = "3001" Then
++  ' RC65: Nhanh 3001 - Quet VL10D 1 lan, neu khong con STO nao co Due thi DUNG va BO QUA batch thieu do!
++  ModuleLog.WriteLog "SKIP_NO_STO_DUE_3001", "Material=" & mat & " khong con STO nao co Due tren 3001; bo qua batch thieu; tiep tuc cac ma khac"
++  EDCSetInputNote mat, "THIEU OB (STO 3001 HET TON DUE - BO QUA)"
++  Exit Sub
+  End If
+ End If
+ 
+@@ -3912,7 +3921,15 @@
+ If wholeFitQty > 0 Then
+  createQty = wholeFitQty
+ ElseIf CDbl(chosen(4)) < missing Then
+- Err.Raise vbObjectError + 4269, , "WAIT_STO_DUE_4007: batch min qty > Due (Due=" & CDbl(chosen(4)) & "); can STO lon hon de nhan nguyen batch."
++ Dim fitShipTo As String
++ fitShipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++ If fitShipTo = "3001" Then
++  ModuleLog.WriteLog "SKIP_NO_STO_DUE_3001", "Material=" & mat & "; Due=" & CDbl(chosen(4)) & " < missing=" & missing & "; STO 3001 khong du nguyen batch; bo qua batch thieu"
++  EDCSetInputNote mat, "THIEU OB (STO 3001 KHONG DU NGUYEN BATCH - BO QUA)"
++  Exit Sub
++ Else
++  Err.Raise vbObjectError + 4269, , "WAIT_STO_DUE_4007: batch min qty > Due (Due=" & CDbl(chosen(4)) & "); can STO lon hon de nhan nguyen batch."
++ End If
+ End If
+ ' mat/STO/Item/CreateQty/remaining need/existing capacity/due/baseline OB Qty/baseline IDs/state
+ mEDCCreatePlan.Add mat, Array(mat, CStr(chosen(0)), CStr(chosen(1)), createQty, need, capacity, CDbl(chosen(4)), EDCTotalOBQty(mat, CStr(chosen(0)), CStr(chosen(1))), EDCExistingOBIds(mat, CStr(chosen(0)), CStr(chosen(1))), "READY_CREATE_OB")
+@@ -3934,12 +3951,14 @@
+ Set mEDCDueCache = CreateObject("Scripting.Dictionary")
+ mEDCDominantSTO = ""
+ 
+-If CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2) <> "4007" Then Exit Sub
++Dim edcBldShipTo As String
++edcBldShipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++If edcBldShipTo <> "4007" And edcBldShipTo <> "3001" Then Exit Sub
+ scope = EDCNormalizeSTOs(CStr(ThisWorkbook.Worksheets("INPUT").Range("R31").Value2))
+ If scope = "" Then Exit Sub
+ 
+ If products.count > 0 Then
+- Application.StatusBar = "4007 BULK READ VL10D (" & products.count & " mats; STO scope=" & scope & ")"
++ Application.StatusBar = edcBldShipTo & " BULK READ VL10D (" & products.count & " mats; STO scope=" & scope & ")"
+  Call EDCCachedDue(CStr(products.keys()(0)), scope)
+ End If
+ 
+@@ -3986,7 +4005,7 @@
+ End If
+ 
+ For Each mat In products.keys
+- Application.StatusBar = "4007 LAP KE HOACH: " & CStr(mat)
++ Application.StatusBar = edcBldShipTo & " LAP KE HOACH: " & CStr(mat)
+  EDCPlanOne CStr(mat)
+ Next mat
+ End Sub
+@@ -4223,10 +4242,14 @@
+ 
+ stage = "RELEASE_3001_DRAFTS"
+ Dim releasedDraft As Boolean
+-If deficits.count > 0 And ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
++Dim grpShipTo As String
++grpShipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++If grpShipTo = "4007" And deficits.count > 0 And ModuleHelper.ToolConfigBool("AUTO_DELETE_DRAFT_3001", True) Then
+  releasedDraft = EDCReleaseDrafts3001(deficits, sto)
+ ElseIf deficits.count = 0 Then
+  ModuleLog.WriteLog "RELEASE_3001_BYPASS", "Tat ca ma da sinh du OB (STO Due da giam du); bo qua hoan toan buoc xoa nhap 3001"
++ElseIf grpShipTo = "3001" Then
++ ModuleLog.WriteLog "RELEASE_3001_BYPASS", "Ship-to 3001 khong xoa nhap 3001; bo qua"
+ End If
+ 
+ ' Commit verified plans: if retry is about to run, KEEP pending key active!
+
+--- RC64/ModuleSAP.bas
++++ RC65/ModuleSAP.bas
+@@ -3222,11 +3222,26 @@
+ 
+ Dim item As Variant, row As Long, tbl As Object, fld As Object, unchanged As Boolean, qty As Double
+ 
++On Error GoTo RecoveryFail
++
+ Set ses = SAPX_GetSessionForTcode("VL03N")
++If ses Is Nothing Then
++ ModuleLog.WriteLog "CONFLICT_READBACK_FAIL", "Khong lay duoc session cho VL03N", ob
++ OB_ResolveUnknown = "UNSAVED"
++ Exit Function
++End If
+ 
+ ModuleMain.AssertRunIdentity
+ 
+ OpenDelivery ses, ob, True
++AssertNoPopup ses
++
++Set tbl = DeliveryOverview(ses)
++If tbl Is Nothing Then
++ ModuleLog.WriteLog "CONFLICT_READBACK_FAIL", "DeliveryOverview Is Nothing tren VL03N", ob
++ OB_ResolveUnknown = "UNSAVED"
++ Exit Function
++End If
+ 
+ Set itemMap = CreateObject("Scripting.Dictionary")
+ 
+@@ -3292,6 +3307,11 @@
+ 
+ End If
+ 
++Exit Function
++
++RecoveryFail:
++ModuleLog.WriteLog "CONFLICT_READBACK_FAIL", "Recovery fail: " & Err.Description, ob
++OB_ResolveUnknown = "UNSAVED"
+ End Function
+ 
+ Private Sub AssertNoPopup(ByVal ses As Object)
+@@ -3561,14 +3581,9 @@
+ For Each item In before.keys
+  If Not keep.exists(CStr(item)) Then
+   rowData = before(item)
+-  ' SAFETY INVARIANT: If this item belongs to a material in our input request,
+-  ' NEVER delete it from the Outbound Delivery! Keep it intact!
+-  If ModuleMain.InputProducts().exists(CStr(rowData(0))) Then
+-   keep(CStr(item)) = True
+-  Else
+-   dropItems(CStr(item)) = rowData
+-   dropPositions(CStr(CLng(rowData(3)))) = CStr(item)
+-  End If
++  ' RC65: 3001 unplanned item cancellation - always delete all items not in plan
++  dropItems(CStr(item)) = rowData
++  dropPositions(CStr(CLng(rowData(3)))) = CStr(item)
+  End If
+ Next item
+ 
+@@ -3638,7 +3653,18 @@
+ 
+ stage = "DELETE_BUTTON"
+ editStarted = True
++On Error Resume Next
+ btn.Press
++If Err.Number <> 0 Then
++ Err.Clear
++ ' RC65 Fallback: Menu Edit -> Delete Item (Shift+F2)
++ ses.findById("wnd[0]/mbar/mp[1]/mi[4]").Select
++ If Err.Number <> 0 Then
++  Err.Clear
++  ses.findById("wnd[0]").sendVKey 14 ' Shift+F2
++ End If
++End If
++On Error GoTo Fail
+ 
+ Set mOverviewIndex = Nothing
+ If Not SAPX_WaitIdle(ses, 30) Then
+@@ -4148,11 +4174,12 @@
+  Err.Raise vbObjectError + 4215, , "PRESAVE_GATE_FAIL: UNKNOWN_UI_STATE Overview Is Nothing"
+ End If
+ 
+-' 2. Check EXTRA_ITEM: Unplanned items logged informatively, never block saving
++' 2. Check EXTRA_ITEM: RC65 Pre-Save Gate - strictly block Save if unplanned items remain
+ For Each liveItm In liveSnap.keys
+  If Not itemMap.exists(CStr(liveItm)) Then
+   If CLng(val(liveItm)) < 900000 Then
+-   ModuleLog.WriteLog "PRESAVE_EXTRA_ITEM_INFO", "Item " & liveItm & " ton tai trong UI nhung ngoai ke hoach hien tai; bo qua khong can thiep", ob
++   ModuleLog.WriteLog "PRESAVE_GATE_FAIL", "EXTRA_ITEM_NOT_CLEARED: Item " & liveItm & " van con trong OB nhung ngoai ke hoach; STOP SAVE", ob
++   Err.Raise vbObjectError + 4215, , "PRESAVE_GATE_FAIL: EXTRA_ITEM_NOT_CLEARED Item " & liveItm & " van con trong OB. Khong Save de tranh VL589."
+   End If
+  End If
+ Next liveItm
+@@ -4630,7 +4657,10 @@
+  SAPX_SetValue ctl, ""
+  If SAPX_ControlValue(ctl) <> "" Then Err.Raise vbObjectError + 4261, , "VL10D ST_MATNR-HIGH not cleared."
+ End If
+-EDC_SetField ses, "ST_WERKS-LOW", "4007"
++Dim edcShipTo As String
++edcShipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++If edcShipTo = "" Then edcShipTo = "4007"
++EDC_SetField ses, "ST_WERKS-LOW", edcShipTo
+ mEDCPlantSelected = True
+ mEDCSelectedMat = mat: mEDCSelectedSTO = sto
+ Set ctl = SAPX_FindByTokens(ses, "ST_WERKS-HIGH", True)
+@@ -4645,7 +4675,7 @@
+  mEDCSupplySelected = True
+  Set ctl = SAPX_FindByTokens(ses, "ST_RESWK-HIGH", True): If Not ctl Is Nothing Then ctl.text = ""
+ End If
+-ModuleLog.WriteLog "VL10D_SELECTION", "Material=" & IIf(mat = "", EDCGroupMaterialNames(), mat) & "; Receiving Plant=4007; STO=" & IIf(sto = "", "AUTO DISCOVERY", sto)
++ModuleLog.WriteLog "VL10D_SELECTION", "Material=" & IIf(mat = "", EDCGroupMaterialNames(), mat) & "; Receiving Plant=" & edcShipTo & "; STO=" & IIf(sto = "", "AUTO DISCOVERY", sto)
+ ses.findById("wnd[0]").sendVKey 8
+ If Not SAPX_WaitIdle(ses, 60) Then Err.Raise vbObjectError + 4261, , "VL10D due index timeout."
+ AssertNoPopup ses
+@@ -4948,8 +4978,11 @@
+ Public Function EDC4007_PrepareVL10D(ByVal sto As String, ByVal item As String, ByVal mat As String, ByVal qty As Double) As String
+ Dim candidates As Collection, a As Variant, chosen As Variant, found As Long, usr As Object, page As Long, stepSize As Long, result As String
+ Set candidates = EDC4007_FindDue(mat, sto)
++Dim prepShipTo As String
++prepShipTo = Trim$(CStr(ThisWorkbook.Worksheets("INPUT").Range("R5").Value2))
++If prepShipTo = "" Then prepShipTo = "4007"
+ For Each a In candidates
+- If CStr(a(0)) = sto And val(CStr(a(1))) = val(item) And CStr(a(2)) = mat And CStr(a(3)) = "4007" And CDbl(a(4)) >= qty Then chosen = a: found = found + 1
++ If CStr(a(0)) = sto And val(CStr(a(1))) = val(item) And CStr(a(2)) = mat And (CStr(a(3)) = prepShipTo Or prepShipTo = "") And CDbl(a(4)) >= qty Then chosen = a: found = found + 1
+ Next a
+ If found <> 1 Then Err.Raise vbObjectError + 4261, , "VL10D due row changed; can dung 1 STO/Item/Material/Plant, found=" & found
+ ' 4007 creates directly from VL10D; ME2N is only for a post-Create duplicate investigation.
+

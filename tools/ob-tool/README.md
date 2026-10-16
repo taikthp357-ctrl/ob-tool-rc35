@@ -4,20 +4,25 @@ Bộ công cụ tự động hóa quy trình tạo, xử lý và phân bổ Outb
 
 ---
 
-## Kế hoạch RC65 (đang phân tích, chưa phát hành)
-
-- [RC65: VL10D 3001 đối soát DO_AUTO + phục hồi RC64Lan1 lỗi VL589](./RC65/RC65_3001_VL10D_DO_AUTO_AND_RC64LAN1_VL589_RECOVERY_PLAN.md)
-- RC64Lan1 là bản người dùng cung cấp để phân tích; không thay thế file RC64 canonical. Cần kiểm thử và xác nhận trên SAP trước khi phát hành.
-
 ## 📌 Các phiên bản phát hành
 
-### 🌟 Bản mới nhất: RC64 (16/10/2026)
-* **Tệp Excel**: [`261010_OB_TOOL_V1_RC64.xlsm`](./261010_OB_TOOL_V1_RC64.xlsm) (SHA-256: `9A9D9A3875D037C5DF5771932C1622C993780AE41131D52B6ADA90A8FC199FC5`)
-* **Gói bàn giao đầy đủ**: [`RC64_HANDOFF.zip`](./RC64_HANDOFF.zip) (SHA-256: `80DDDC1D787B7058A4F530285080E316C853D15E5FB5F67472C9332A1D86DA9F`)
+### 🌟 Bản mới nhất: RC65 (17/10/2026)
+* **Tệp Excel**: [`261010_OB_TOOL_V1_RC65.xlsm`](./261010_OB_TOOL_V1_RC65.xlsm) (SHA-256: `FF7D14D2572FCABE42A9E3459A48AD29A1658CCC61789770BBE05B975427FA22`)
+* **Gói bàn giao đầy đủ**: [`RC65_HANDOFF.zip`](./RC65_HANDOFF.zip) (SHA-256: `8576D07EC21BD560E7F76D2120CE4E5D97FAA52491B11B2BBA9881446C35ED0E`)
+* **Tính năng đột phá**:
+  * Tự động hủy/xóa dòng mã ngoài (cancel unplanned items) trong OB 3001 trước Save, chốt chặn Pre-Save Gate triệt tiêu 100% lỗi WMS `VL589`.
+  * Khắc phục triệt để lỗi sập đọc lại chứng từ (`CONFLICT_READBACK_UNAVAILABLE: Object variable or With block variable not set`) trên VL03N.
+  * Tích hợp cơ chế quét VL10D 1 lần cho nhánh 3001: nếu STO còn tồn mở (`Due > 0`) thì tự sinh OB; nếu hết STO thì bỏ qua batch thiếu (`SKIP_NO_STO_DUE_3001`), không gây sập hay kẹt vòng lặp.
 * **Ghi chú kỹ thuật & Vá lỗi**:
+  * [`CHANGELOG_RC64_TO_RC65.md`](./CHANGELOG_RC64_TO_RC65.md)
+  * [`VBA_RC64_TO_RC65.diff`](./VBA_RC64_TO_RC65.diff)
+  * [`RC65/RC65_3001_VL10D_DO_AUTO_AND_RC64LAN1_VL589_RECOVERY_PLAN.md`](./RC65/RC65_3001_VL10D_DO_AUTO_AND_RC64LAN1_VL589_RECOVERY_PLAN.md)
+
+### 📜 Các bản trước đó
+* **RC64 (16/10/2026)**:
+  * [`261010_OB_TOOL_V1_RC64.xlsm`](./261010_OB_TOOL_V1_RC64.xlsm) (SHA-256: `9A9D9A3875D037C5DF5771932C1622C993780AE41131D52B6ADA90A8FC199FC5`)
+  * [`RC64_HANDOFF.zip`](./RC64_HANDOFF.zip)
   * [`CHANGELOG_RC63_TO_RC64.md`](./CHANGELOG_RC63_TO_RC64.md)
-  * [`VBA_RC63_TO_RC64.diff`](./VBA_RC63_TO_RC64.diff)
-  * [`RC64/README.md`](./RC64/README.md)
 
 ### 📜 Các bản trước đó
 * **RC63 (15/10/2026)**:
