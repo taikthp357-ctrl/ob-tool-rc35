@@ -20,8 +20,8 @@ tools/
 
 ### 1. 📊 [Stock FG MA BODY V3.7](./tools/stock-fg-ma-body/) (Cập nhật 16/10/2026)
 *Tách biệt hoàn toàn Shop BODY và XMĐ, hiển thị rõ ràng mã Trước/Sau sơn, sửa cảnh báo "Ưu tiên kéo line", font Times New Roman & kẻ ô toàn diện.*
-* **Tệp Excel**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm) — SHA-256: `84C5F2FFF853E119052CAFC3CDC1609D713C5B4BBF052A1C84F752AE077CD07F`
-* **Gói nén ZIP**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip) — SHA-256: `7DA6952E3DF9EEDF6665405C531758A1D42B735476A2332706CDCDEE937F0D83`
+* **Tệp Excel**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm) — SHA-256: `D0A5154B65798553BF596CF580C9CA3BBBE5A788D9B9304A7583CD7EE14A7793`
+* **Gói nén ZIP**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip) — SHA-256: `C151BFA1262C07CCA5BE9B7BB31F884C3CC6E18B765D78814CAAF7BA57168639`
 * **Ghi chú phát hành**: [`tools/stock-fg-ma-body/RELEASE_NOTES_V3_7.md`](./tools/stock-fg-ma-body/RELEASE_NOTES_V3_7.md)
 
 ---
