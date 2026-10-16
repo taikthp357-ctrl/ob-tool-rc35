@@ -18,19 +18,19 @@ tools/
 
 ## 🚀 Truy cập nhanh các bản phát hành mới nhất
 
-### 1. 📊 [Stock FG MA BODY V3.7](./tools/stock-fg-ma-body/) (Cập nhật 16/10/2026)
-*Tách biệt hoàn toàn Shop BODY và XMĐ, hiển thị rõ ràng mã Trước/Sau sơn, sửa cảnh báo "Ưu tiên kéo line", font Times New Roman & kẻ ô toàn diện.*
-* **Tệp Excel**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.xlsm) — SHA-256: `D0A5154B65798553BF596CF580C9CA3BBBE5A788D9B9304A7583CD7EE14A7793`
-* **Gói nén ZIP**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY_V3_7.zip) — SHA-256: `C151BFA1262C07CCA5BE9B7BB31F884C3CC6E18B765D78814CAAF7BA57168639`
-* **Ghi chú phát hành**: [`tools/stock-fg-ma-body/RELEASE_NOTES_V3_7.md`](./tools/stock-fg-ma-body/RELEASE_NOTES_V3_7.md)
+### 1. 📊 [Stock FG MA BODY](./tools/stock-fg-ma-body/) (Bản cập nhật 17/10/2026)
+*Đổ màu text Teams: BD Kho màu đỏ, BD Carset màu xanh; sửa cảnh báo "Ưu tiên kéo line", font Times New Roman & kẻ ô toàn diện.*
+* **Tệp Excel chính thức**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY.xlsm`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY.xlsm) — SHA-256: `C49C2F26A00629E9EB6E669799BCBD2D84FBC928D1CEB1A8C5916F3B0690A4AB`
+* **Gói nén ZIP**: [`tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY.zip`](./tools/stock-fg-ma-body/261008_Stock_FG_MA_BODY.zip) — SHA-256: `3B84CEFCB890289F43353E5CCF5E3D09B6374ED0D1AF500F30A2AF9509E2BC36`
+* **Ghi chú phát hành**: [`tools/stock-fg-ma-body/README.md`](./tools/stock-fg-ma-body/README.md)
 
 ---
 
-### 2. ⚡ [OB Tool V1 RC64](./tools/ob-tool/) (Cập nhật 16/10/2026)
-*Tự động hóa VL10D STO, giải phóng OB nháp kho 3001, phân bổ Batch VL02N và nút bấm điều phối ALL IN ONE.*
-* **Tệp Excel**: [`tools/ob-tool/261010_OB_TOOL_V1_RC64.xlsm`](./tools/ob-tool/261010_OB_TOOL_V1_RC64.xlsm) — SHA-256: `9A9D9A3875D037C5DF5771932C1622C993780AE41131D52B6ADA90A8FC199FC5`
-* **Gói bàn giao Handoff**: [`tools/ob-tool/RC64_HANDOFF.zip`](./tools/ob-tool/RC64_HANDOFF.zip) — SHA-256: `80DDDC1D787B7058A4F530285080E316C853D15E5FB5F67472C9332A1D86DA9F`
-* **Vá mã VBA & Changelog**: [`tools/ob-tool/CHANGELOG_RC63_TO_RC64.md`](./tools/ob-tool/CHANGELOG_RC63_TO_RC64.md)
+### 2. ⚡ [OB Tool V1 RC65](./tools/ob-tool/) (Cập nhật 17/10/2026)
+*Quét VL10D 1 lần cho nhánh 3001 (bỏ qua batch thiếu nếu hết STO), hủy dòng mã ngoài trong OB 3001 trước Save triệt tiêu lỗi VL589, vá sập đọc lại VL03N.*
+* **Tệp Excel**: [`tools/ob-tool/261010_OB_TOOL_V1_RC65.xlsm`](./tools/ob-tool/261010_OB_TOOL_V1_RC65.xlsm) — SHA-256: `FF7D14D2572FCABE42A9E3459A48AD29A1658CCC61789770BBE05B975427FA22`
+* **Gói bàn giao Handoff**: [`tools/ob-tool/RC65_HANDOFF.zip`](./tools/ob-tool/RC65_HANDOFF.zip) — SHA-256: `8576D07EC21BD560E7F76D2120CE4E5D97FAA52491B11B2BBA9881446C35ED0E`
+* **Vá mã VBA & Changelog**: [`tools/ob-tool/CHANGELOG_RC64_TO_RC65.md`](./tools/ob-tool/CHANGELOG_RC64_TO_RC65.md)
 
 ---
 
