@@ -1,74 +1,64 @@
-# Stock FG MA BODY V3.7 — Báo Cáo & Quản Trị Tồn Kho Body - MA (Bản Tối Ưu Hóa Toàn Diện & Chuẩn Hóa UI)
+# Stock FG MA BODY V3.7 — Báo Cáo & Quản Trị Tồn Kho Body - MA (Bản Chuẩn Hóa Logic Cảnh Báo, Typography & UI Toàn Diện)
 
-## 1. Thông Tin Bản Phát Hành & Mã Băm SHA-256 (Đã Tối Ưu)
+## 1. Thông Tin Bản Phát Hành & Mã Băm SHA-256 (Cập nhật 16/10/2026)
 - **Tên Workbook**: `261008_Stock_FG_MA_BODY_V3_7.xlsm`
-  - **Kích thước**: 866,005 bytes
-  - **Mã băm SHA-256**: `98B37DD75A2EB0E57D5DCC8DD32BE497B2F9CDF38D50B98CA3A232834549A1C1`
+  - **Kích thước**: 911,389 bytes
+  - **Mã băm SHA-256**: `84C5F2FFF853E119052CAFC3CDC1609D713C5B4BBF052A1C84F752AE077CD07F`
 - **Gói ZIP đính kèm**: `261008_Stock_FG_MA_BODY_V3_7.zip`
-  - **Kích thước**: 776,145 bytes
-  - **Mã băm SHA-256**: `8445BBE8CCC2373D5C3A4AEFBFC1F38FFEDE3EA495912023482C04743AAAA443`
+  - **Kích thước**: 816,798 bytes
+  - **Mã băm SHA-256**: `7DA6952E3DF9EEDF6665405C531758A1D42B735476A2332706CDCDEE937F0D83`
   - **Nội dung gói ZIP**: Đóng gói tinh gọn, **CHỈ chứa duy nhất** tệp `261008_Stock_FG_MA_BODY_V3_7.xlsm` và `261008_Stock_FG_MA_BODY_V3_7.xlsm.sha256`.
 
 ---
 
-## 2. Chi Tiết Tối Ưu Giao Diện (UI) & Tính Năng
+## 2. Chi Tiết Các Cải Tiến & Vá Lỗi Mới Nhất
 
-### A. Căn Chỉnh Giao Diện Thẩm Mỹ & Thẳng Hàng Tuyệt Đối
-1. **Khối Header "CHỌN MODEL" bên phải**:
-   - Được đặt tại gộp ô **`N1:O2`** (căn thẳng đứng với panel điều khiển).
-   - Màu nền Navy Blue `RGB(23, 58, 89)`, chữ trắng in đậm căn giữa.
-   - Ô **`N3:O4`** hiển thị trạng thái shop (`ĐANG XEM: SHOP...`).
-   - Ô **`N5:O6`** đặt nút chuyển Shop 1-click `Btn_SwitchShop`.
-   - Danh sách checkbox Model đặt thẳng hàng tại cột **`N` (Tên Model)** và cột **`O` (Ô tích chọn)**.
-   - Cột **`M`** được giải phóng thành dải phân cách trắng 3 ký tự sạch sẽ, tạo khoảng cách thông thoáng giữa bảng dữ liệu bên trái và cụm điều khiển bên phải.
+### A. Sửa Triệt Để Logic Cảnh Báo Khi Hàng Ở Line Nhưng Kho MA Hết Tồn
+- **Vấn đề trước đây**: Khi tổng tồn MA > 0 nhưng Kho MA = 0 và Line MA > 0, tool vẫn đưa ra hành động `Ưu tiên xuất Body` / `Ưu tiên xuất XMĐ`. Đây là thông tin sai lệch vì kho MA không có hàng để xuất sang xưởng xe, hàng đang nằm tại Line MA.
+- **Quy tắc mới chuẩn xác**:
+  * Nếu **Tồn Kho MA > 0**: `Ưu tiên xuất Body` (hoặc `Ưu tiên xuất XMĐ` khi ở Shop XMĐ).
+  * Nếu **Tồn Kho MA = 0 và Tồn Line MA > 0**: Báo chính xác **`Ưu tiên kéo line`** (bắt buộc phải kéo hàng từ Line MA).
+  * Nếu **Tồn Kho MA = 0 và Tồn Line MA = 0**: Báo **`MA hết tồn`**.
+  * Nếu có lượng Intransit đang chuyển kho: Bổ sung dòng **`Hàng chờ xuất sang Body`** (hoặc `Hàng chờ xuất sang XMĐ`).
 
-2. **Dải Banner Tiêu Đề Động Trải Dài Khớp Với Số Cột**:
-   - Khi xem **Shop XMĐ** (12 cột `A` đến `L`):
-     * Dải banner chính ô `A1` tự động gộp **`A1:L1`**, nền xanh Navy đậm phủ kín cả 12 cột.
-     * Tiêu đề ghi rõ: `CẢNH BÁO TỒN KHO XMĐ (XE MÁY ĐIỆN) – MA V3.7` (hoàn toàn không còn chữ Body).
-     * Dòng mô tả `A2:L2` và ghi chú `A10:L10` tự động trải rộng đến hết cột `L`.
-     * Số đếm cảnh báo được chuyển sang ô **`L9`**, căn thẳng hàng ngay phía trên cột Cảnh Báo (`L`).
-     * 3 nút lệnh phía trên tự động giãn đều 4 cột mỗi nút: `A5:D6`, `E5:H6`, `I5:L6`.
-   - Khi xem **Shop BODY** (11 cột `A` đến `K`):
-     * Dải banner chính ô `A1` tự động gộp **`A1:K1`** (cột `L` được dọn sạch viền và màu nền).
-     * Tiêu đề ghi rõ: `CẢNH BÁO TỒN KHO BODY – MA V3.7`.
-     * Số đếm cảnh báo đặt tại ô **`K9`**, thẳng hàng ngay phía trên cột Cảnh Báo (`K`).
-     * 3 nút lệnh co giãn chuẩn: `A5:D6`, `E5:G6`, `H5:K6`.
+### B. Chuẩn Hóa Chuỗi Trạng Thái Chờ Hàng
+- Đổi toàn bộ chuỗi cũ *"chờ nhận hàng sang body"* thành chuẩn xác theo nghiệp vụ xuất - nhận:
+  * **Shop BODY**: **`Hàng chờ xuất sang Body`**
+  * **Shop XMĐ**: **`Hàng chờ xuất sang XMĐ`**
+
+### C. Chuẩn Hóa Font Chữ 100% Times New Roman Toàn Workbook
+- Áp dụng thống nhất phông chữ **Times New Roman** trên toàn bộ các thành phần:
+  * Style mặc định **Normal** 11pt Times New Roman.
+  * Toàn bộ 6 sheet: **`CANH BAO`**, **`TON TONG`**, **`DATA`**, **`CAU HINH`**, **`MB52`**, **`LOG`**.
+  * Bảng điều khiển chọn model (Panel `N1:O50`).
+  * Tất cả các khối Banner, mô tả, đếm cảnh báo và TextFrame của các nút bấm điều hướng.
+
+### D. Căn Chỉnh & Kẻ Ô Đầy Đủ (Crisp Continuous Borders)
+- Áp dụng đường viền kẻ ô liên tục (`xlContinuous`, màu `RGB(218, 225, 233)`) cho tất cả các vùng bảng biểu trên mọi sheet:
+  * Sheet `CANH BAO` & `TON TONG`: Kẻ ô toàn diện từ dòng tiêu đề đến dòng dữ liệu cuối cùng, kèm tô màu so le (Zebra striping) trên `CANH BAO`.
+  * Căn lề dữ liệu chuẩn xác:
+    - Mã chi tiết / Mã trước / Mã sau / Model / Trạm: **Căn giữa (Center)**.
+    - Định mức Usage: **Căn phải (Right)**, định dạng số thập phân `0.##`.
+    - Số lượng tồn kho (Kho Body, Line Body, Can build, Intransit, Tồn Kho MA, Tồn Line MA): **Căn phải (Right)**, định dạng phân cách hàng nghìn `#,##0`.
+    - Cột Cảnh báo: **Căn giữa (Center)**, in đậm (Bold), chữ đỏ nổi bật `RGB(164, 58, 45)`.
+  * Sheet `DATA`: Cột A:C & E:G căn giữa, cột US căn phải `0.##`, kẻ viền đầy đủ 1,768 dòng dữ liệu.
+  * Sheet `CAU HINH`: Kẻ ô bảng thông số cấu hình và bảng ngưỡng DOH Model.
+  * Sheet `MB52` & `LOG`: Kẻ viền đầy đủ toàn bộ bảng dữ liệu.
 
 ---
 
-### B. Biểu Hiện Rõ Ràng Mã Trước Sơn & Sau Sơn (Chỉ Dành Cho XMĐ)
-- Bảng hiển thị song song cả 2 mã:
-  * **Cột 1**: `FG trước sơn` (Mã linh kiện trước sơn, ví dụ: `BIW70011341`)
-  * **Cột 2**: `FG sau sơn` (Mã linh kiện sau sơn, ví dụ: `BIW70011351`)
-  * **Cột 4**: `ESC trước sơn` (Tồn của mã trước sơn tại ESC)
-  * **Cột 5**: `ESC sau sơn` (Tồn của mã sau sơn tại ESC)
-  * **Cột 6**: `ESC Carset` (Khả năng lắp ráp xe tổng: `Int((ESC trước sơn + ESC sau sơn) / Usage)`)
-- Cảnh báo hành động ghi rõ: `Ưu tiên xuất XMĐ` / `Chờ nhận hàng sang XMĐ` / `MA hết tồn` (Hoàn toàn không còn chữ "Body").
-
----
-
-### C. Tối Ưu Hóa Tốc Độ & Luồng Chạy (Performance & Execution Flow)
-1. **Triệt tiêu hoàn toàn giật/nhấp nháy màn hình (Zero UI Flicker)**:
-   - Toàn bộ chu trình `RebuildViews` được bảo vệ bởi khóa `ScreenUpdating = False`, `Calculation = xlCalculationManual` và `EnableEvents = False`.
-   - Màn hình chỉ vẽ lại 1 lần duy nhất khi toàn bộ dữ liệu đã sẵn sàng.
-2. **Đọc dữ liệu siêu tốc bằng mảng RAM (Bulk Memory Array)**:
-   - Thay thế việc đọc 10.000 lượt ô rời rạc từ sheet `DATA` bằng 1 lần nạp toàn bộ vào mảng bộ nhớ `dataVals = d.Range("A2:G...").Value2`. Tốc độ xử lý tăng gấp 4 lần.
-3. **Ghi cảnh báo một lần (Bulk Write)**:
-   - Dữ liệu cảnh báo được tập hợp vào mảng trong RAM và ghi 1 lần duy nhất xuống sheet `CANH BAO` (`c.Range("A12").Resize(...).Value2 = warnArr`), loại bỏ hoàn toàn việc đọc/ghi cell-by-cell.
-4. **Loại bỏ gọi hàm đúp (Redundant Calls)**:
-   - Tối giản hóa macro `SwitchShop`, loại bỏ các lệnh vẽ trùng lặp `SyncModelPanel` và `UpdateShopDisplay`, giúp chuyển xưởng mượt mà và tức thì.
-5. **Thời gian đo kiểm thực tế (Benchmarks)**:
-   - `RebuildViews`: **~0.80 giây** (trước đây ~1.36 giây).
-   - `SwitchShop` (Chuyển Shop): **~1.02 giây** (trước đây ~2.68 giây).
-   - Biên dịch VBE: **PASS 100%** (`control.Enabled = False`).
+## 3. Kiến Trúc V3.7: Chuyển Đổi Nhanh Giữa BODY & XMĐ
+1. **Nút chuyển đổi 1-Click (`SwitchShop`)**:
+   - Nút lệnh tại ô `N5:O6` sheet `CANH BAO` cho phép chuyển tức thì giữa Shop BODY và Shop XMĐ.
+2. **Hiển thị tách bạch mã Trước Sơn & Sau Sơn (Chỉ dành cho XMĐ)**:
+   - **Cột 1**: `FG trước sơn`
+   - **Cột 2**: `FG sau sơn`
+   - **Cột 4**: `ESC trước sơn`
+   - **Cột 5**: `ESC sau sơn`
+   - **Cột 6**: `ESC Carset`
+   - Shop BODY hoàn toàn giữ nguyên bảng 11 cột truyền thống, không bị ảnh hưởng bởi mã sau sơn.
+3. **Bảo Toàn Master Data Tuyệt Đối**:
+   - Khi cập nhật mã mới trong sheet `DATA` (ví dụ đổi đuôi `AA` thành `HA`), dữ liệu mới được bảo toàn vĩnh viễn, tool chỉ đọc và không bao giờ ghi đè hay hoàn tác về mã cũ.
+4. **Kiểm Định Kỹ Thuật**:
+   - Native VBE Debug Compile: **PASS 100%** (`control.Enabled = False`).
    - Khử bỏ thuộc tính gây treo Excel: `forceFullCalc="1"` = **False**.
-
----
-
-### D. Cơ Chế Bảo Toàn Mã Vật Tư Khi Cập Nhật Data (Ví dụ đổi đuôi AA thành HA)
-- **Sheet `DATA` là Master Data cố định**:
-  * Khi người dùng cập nhật hoặc đổi mã trong sheet `DATA` (ví dụ từ đuôi `...AA` sang `...HA`), mã mới này **được lưu vĩnh viễn** trong workbook.
-  * Toàn bộ mã nguồn VBA của tool chỉ **đọc** sheet `DATA`, tuyệt đối **KHÔNG BAO GIỜ ghi đè hay thay đổi bất kỳ ô nào** trong sheet `DATA`.
-  * Do đó, khi đã sửa thành `...HA`, tool sẽ luôn luôn xử lý và hiển thị với mã mới `...HA`, **hoàn toàn KHÔNG BAO GIỜ bị quay lại mã cũ `...AA`**.
-  * Tool có sẵn cơ chế sự kiện tự động: Ngay khi người dùng chỉnh sửa cột A:G trong sheet `DATA`, hệ thống sẽ tự động cập nhật ngay lập tức sang các sheet `CANH BAO` và `TON TONG`.
