@@ -4,6 +4,11 @@ Bộ công cụ tự động hóa quy trình tạo, xử lý và phân bổ Outb
 
 ---
 
+## Kế hoạch RC65 (đang phân tích, chưa phát hành)
+
+- [RC65: VL10D 3001 đối soát DO_AUTO + phục hồi RC64Lan1 lỗi VL589](./RC65/RC65_3001_VL10D_DO_AUTO_AND_RC64LAN1_VL589_RECOVERY_PLAN.md)
+- RC64Lan1 là bản người dùng cung cấp để phân tích; không thay thế file RC64 canonical. Cần kiểm thử và xác nhận trên SAP trước khi phát hành.
+
 ## 📌 Các phiên bản phát hành
 
 ### 🌟 Bản mới nhất: RC64 (16/10/2026)
